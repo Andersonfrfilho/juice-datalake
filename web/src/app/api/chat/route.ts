@@ -264,7 +264,7 @@ function formatTemplateResponse(description: string, result: { columns: { name: 
   };
 
   // Try to build a natural language response from the first row
-  const topItem = cols.find(c => c.includes("produto") || c.includes("name") || c.includes("nome") || c.includes("loja") || c.includes("cliente"));
+  const topItem = cols.find(c => c.includes("produto") || c.includes("name") || c.includes("nome") || c.includes("loja") || c.includes("cliente") || c.includes("motivo") || c.includes("reason"));
   const regionCol = cols.find(c => c.includes("regi"));
   const revenueCol = cols.find(c => c.includes("receita") || c.includes("revenue"));
   const volumeCol = cols.find(c => c.includes("volume") || c.includes("quantidade") || c.includes("qtd"));
@@ -275,7 +275,8 @@ function formatTemplateResponse(description: string, result: { columns: { name: 
   const parts: string[] = [];
 
   if (topItem && row[topItem]) {
-    parts.push(`**${row[topItem]}**`);
+    const topValue = valueLabelMap[topItem]?.[String(row[topItem])] || row[topItem];
+    parts.push(`**${topValue}**`);
     if (regionCol && row[regionCol]) parts.push(`*${row[regionCol]}*`);
   }
   if (revenueCol && row[revenueCol] && Number(row[revenueCol]) > 0) {
