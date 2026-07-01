@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     let marketContext = "";
     if (addContext && (await isAIProviderReady())) {
-      marketContext = await getMarketContext(question, answer);
+      marketContext = await getMarketContext(question, answer, result.match.template.category);
     }
 
     const finalAnswer = addGlossary(answer + marketContext);
@@ -243,6 +243,26 @@ function formatTemplateResponse(description: string, result: { columns: { name: 
     avg_revenue: "Média Receita (R$)",
   };
 
+  // Value label mapping for enum-like columns (DB value → Portuguese) — applies
+  // to cell contents, not headers. Without this, raw snake_case DB values like
+  // "devolucao_cliente" leak straight into the rendered table.
+  const valueLabelMap: Record<string, Record<string, string>> = {
+    motivo: {
+      devolucao_cliente: "Devolução do Cliente",
+      produto_danificado: "Produto Danificado",
+      produto_errado: "Produto Errado",
+      vencido: "Produto Vencido",
+      outro: "Outro Motivo",
+    },
+    reason: {
+      devolucao_cliente: "Devolução do Cliente",
+      produto_danificado: "Produto Danificado",
+      produto_errado: "Produto Errado",
+      vencido: "Produto Vencido",
+      outro: "Outro Motivo",
+    },
+  };
+
   // Try to build a natural language response from the first row
   const topItem = cols.find(c => c.includes("produto") || c.includes("name") || c.includes("nome") || c.includes("loja") || c.includes("cliente"));
   const regionCol = cols.find(c => c.includes("regi"));
@@ -290,7 +310,7 @@ function formatTemplateResponse(description: string, result: { columns: { name: 
         const hLower = c.name.toLowerCase();
         if (v === null || v === undefined) return "-";
         const num = Number(v);
-        if (isNaN(num)) return String(v);
+        if (isNaN(num)) return valueLabelMap[c.name]?.[String(v)] || String(v);
         if (hLower.includes("pct") || hLower.includes("taxa") || hLower.includes("percent") || hLower.includes("margem") && !hLower.includes("brl")) {
           return `${num.toFixed(1)}%`;
         }
@@ -345,7 +365,19 @@ function addGlossary(text: string): string {
   return result;
 }
 
-function buildMarketContextPrompt(question: string, answer: string): string {
+function buildMarketContextPrompt(question: string, answer: string, category?: string): string {
+  if (category === "Devoluções") {
+    return `Pergunta do usuário: "${question}"
+Dados da resposta (já traduzidos para português, use os motivos exatamente como aparecem aqui): "${answer.substring(0, 600)}"
+
+Com base nos benchmarks do setor de bebidas Brasil 2026 (devolução aceitável: 2-5%), responda em até 3 frases curtas:
+1. Uma frase comparando a taxa de devolução com a média do setor (2-5%).
+2. Uma ou duas frases com possíveis causas, baseadas SOMENTE na distribuição de motivos já presente nos dados acima (ex: se "Produto Danificado" tem participação alta, sugira revisão de embalagem/transporte; se "Devolução do Cliente" domina, sugira investigar expectativa do cliente ou qualidade percebida). NÃO invente motivos que não estejam nos dados.
+
+Seja específico e direto. NÃO use "N/A".
+Responda APENAS as frases, sem introdução.`;
+  }
+
   return `Pergunta do usuário: "${question}"
 Dados da resposta: "${answer.substring(0, 400)}"
 
@@ -384,8 +416,8 @@ async function getOllamaMarketContext(prompt: string): Promise<string> {
   return (data.message?.content || "").trim();
 }
 
-async function getMarketContext(question: string, answer: string): Promise<string> {
-  const prompt = buildMarketContextPrompt(question, answer);
+async function getMarketContext(question: string, answer: string, category?: string): Promise<string> {
+  const prompt = buildMarketContextPrompt(question, answer, category);
 
   try {
     let ctx: string;
@@ -400,7 +432,10 @@ async function getMarketContext(question: string, answer: string): Promise<strin
     }
 
     if (!ctx || ctx === "N/A" || ctx.includes("N/A") || ctx.length < 10) return "";
-    return `\n\n---\n📊 *Contexto de mercado 2026:* ${ctx}`;
+    // Clearly labeled as an AI interpretation, separate from the deterministic
+    // data table above it — the table is real query results, this is the
+    // model's reading of those results, and the two should never be confused.
+    return `\n\n---\n🤖 **Análise do assistente (gerada por IA, não é dado extraído do banco):**\n📊 ${ctx}`;
   } catch {
     return "";
   }
