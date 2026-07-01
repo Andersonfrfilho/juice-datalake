@@ -70,10 +70,16 @@ function keywordScore(templateId: string, tokens: string[]): number {
   let hits = 0;
   for (const token of tokens) {
     if (tkw.includes(token)) hits++;
-    // Partial match
+    // Partial match — require both sides to be long enough that the overlap is
+    // meaningful, since templateKeywords includes short regex-syntax remnants
+    // (e.g. "es", "aa") stripped from `patterns` that would otherwise substring-match
+    // unrelated words (e.g. "clientes" ~ "es") and skew the fallback ranking.
     else {
       for (const kw of tkw) {
-        if (kw.includes(token) || token.includes(kw)) { hits += 0.5; break; }
+        if (kw.length >= 4 && token.length >= 4 && (kw.includes(token) || token.includes(kw))) {
+          hits += 0.5;
+          break;
+        }
       }
     }
   }
