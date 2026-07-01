@@ -48,8 +48,8 @@ export async function executeQuery(sql: string): Promise<QueryResult> {
       throw new Error(`Operation not allowed: ${keyword.trim()}`);
     }
   }
-  if (!upperSQL.startsWith("SELECT") && !upperSQL.startsWith("SHOW") && !upperSQL.startsWith("DESCRIBE") && !upperSQL.startsWith("EXPLAIN")) {
-    throw new Error("Only SELECT, SHOW, DESCRIBE, and EXPLAIN queries are allowed");
+  if (!upperSQL.startsWith("SELECT") && !upperSQL.startsWith("SHOW") && !upperSQL.startsWith("DESCRIBE") && !upperSQL.startsWith("EXPLAIN") && !upperSQL.startsWith("WITH")) {
+    throw new Error("Only SELECT, SHOW, DESCRIBE, EXPLAIN, and WITH queries are allowed");
   }
 
   let lastError: Error | null = null;

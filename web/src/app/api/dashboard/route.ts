@@ -6,71 +6,69 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    // Current month sales
+    // Use the latest date in the data as reference (data is 2024-2025)
+    const refDate = "DATE '2025-12-01'";
+
     const currentMonthQuery = `
       SELECT COALESCE(SUM(total_amount), 0) as revenue
       FROM postgresql.public.sales
-      WHERE sale_date >= DATE_TRUNC('month', CURRENT_DATE)
-        AND sale_date <= CURRENT_DATE
+      WHERE sale_date >= DATE_TRUNC('month', ${refDate})
+        AND sale_date <= ${refDate} + INTERVAL '1' MONTH - INTERVAL '1' DAY
     `;
 
-    // Previous month sales
     const previousMonthQuery = `
       SELECT COALESCE(SUM(total_amount), 0) as revenue
       FROM postgresql.public.sales
-      WHERE sale_date >= DATE_TRUNC('month', DATE_ADD('month', -1, CURRENT_DATE))
-        AND sale_date < DATE_TRUNC('month', CURRENT_DATE)
+      WHERE sale_date >= DATE_TRUNC('month', DATE_ADD('month', -1, ${refDate}))
+        AND sale_date < DATE_TRUNC('month', ${refDate})
     `;
 
-    // Top 5 products this month
     const topProductsQuery = `
       SELECT p.name, SUM(s.total_amount) as revenue, SUM(s.quantity) as quantity
       FROM postgresql.public.sales s
       JOIN postgresql.public.products p ON s.product_id = p.id
-      WHERE s.sale_date >= DATE_TRUNC('month', CURRENT_DATE)
-        AND s.sale_date <= CURRENT_DATE
+      WHERE s.sale_date >= DATE_TRUNC('month', ${refDate})
+        AND s.sale_date <= ${refDate} + INTERVAL '1' MONTH - INTERVAL '1' DAY
       GROUP BY p.name
       ORDER BY revenue DESC
       LIMIT 5
     `;
 
-    // Sales by region this month
     const regionQuery = `
       SELECT st.region,
-             SUM(s.total_amount) as revenue,
-             SUM(s.total_amount) - LAG(SUM(s.total_amount)) OVER (
-               PARTITION BY st.region ORDER BY DATE_TRUNC('month', s.sale_date)
-             ) as change_amount
+             SUM(CASE WHEN s.sale_date >= DATE_TRUNC('month', DATE_ADD('month', -1, ${refDate}))
+                       AND s.sale_date < DATE_TRUNC('month', ${refDate})
+                      THEN s.total_amount ELSE 0 END) as revenue_prev,
+             SUM(CASE WHEN s.sale_date >= DATE_TRUNC('month', ${refDate})
+                       AND s.sale_date <= ${refDate} + INTERVAL '1' MONTH - INTERVAL '1' DAY
+                      THEN s.total_amount ELSE 0 END) as revenue_curr
       FROM postgresql.public.sales s
       JOIN postgresql.public.stores st ON s.store_id = st.id
-      WHERE s.sale_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1' MONTH
-        AND s.sale_date <= CURRENT_DATE
-      GROUP BY st.region, DATE_TRUNC('month', s.sale_date)
-      ORDER BY st.region
+      GROUP BY st.region
+      ORDER BY revenue_curr DESC
     `;
 
-    // Monthly trend (last 12 months)
     const monthlyTrendQuery = `
       SELECT DATE_TRUNC('month', sale_date) as month,
              SUM(total_amount) as revenue
       FROM postgresql.public.sales
-      WHERE sale_date >= DATE_ADD('month', -12, CURRENT_DATE)
+      WHERE sale_date >= DATE_ADD('month', -12, ${refDate})
+        AND sale_date <= ${refDate} + INTERVAL '1' MONTH - INTERVAL '1' DAY
       GROUP BY DATE_TRUNC('month', sale_date)
       ORDER BY month
     `;
 
-    // Store count
     const storesQuery = `
       SELECT COUNT(*) as total FROM postgresql.public.stores
     `;
 
-    // Average ticket this month
     const avgTicketQuery = `
       SELECT AVG(daily_total) as avg_ticket
       FROM (
         SELECT sale_date, SUM(total_amount) as daily_total
         FROM postgresql.public.sales
-        WHERE sale_date >= DATE_TRUNC('month', CURRENT_DATE)
+        WHERE sale_date >= DATE_TRUNC('month', ${refDate})
+          AND sale_date <= ${refDate} + INTERVAL '1' MONTH - INTERVAL '1' DAY
         GROUP BY sale_date
       ) daily
     `;
@@ -93,25 +91,25 @@ export async function GET() {
         ? ((currentMonthSales - previousMonthSales) / previousMonthSales) * 100
         : 0;
 
-    // Process region data with change %
-    const regionMap = new Map<string, { revenue: number; changePercent: number }>();
     const regions = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"];
+    const regionMap = new Map<string, { revenue: number; changePercent: number }>();
     for (const r of regions) {
       regionMap.set(r, { revenue: 0, changePercent: 0 });
     }
     for (const row of regionResult.rows) {
-      if (row.region) {
-        regionMap.set(String(row.region), {
-          revenue: Number(row.revenue) || 0,
-          changePercent: Number(row.change_amount) || 0,
-        });
-      }
+      const reg = String(row.region);
+      const curr = Number(row.revenue_curr) || 0;
+      const prev = Number(row.revenue_prev) || 0;
+      regionMap.set(reg, {
+        revenue: curr,
+        changePercent: prev > 0 ? ((curr - prev) / prev) * 100 : 0,
+      });
     }
 
     const salesByRegion = Array.from(regionMap.entries()).map(([region, data]) => ({
       region,
       revenue: data.revenue,
-      changePercent: data.changePercent,
+      changePercent: Math.round(data.changePercent * 10) / 10,
     }));
 
     const kpi = {

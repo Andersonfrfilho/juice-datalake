@@ -114,8 +114,8 @@ LIMIT {limit}`,
   WHERE s.sale_date >= {prev_period_start} AND s.sale_date < {period_start}
   GROUP BY p.category
 )
-SELECT c.category, ROUND(((c.revenue - p.revenue)/NULLIF(p.revenue,0)*100)::decimal,1) as crescimento_pct,
-  ROUND(c.revenue::decimal,2) as receita_atual, ROUND(p.revenue::decimal,2) as receita_anterior
+SELECT c.category, ROUND(((c.revenue - p.revenue)/NULLIF(p.revenue,0)*100),1) as crescimento_pct,
+  ROUND(c.revenue,2) as receita_atual, ROUND(p.revenue,2) as receita_anterior
 FROM curr c JOIN prev p ON c.category = p.category
 WHERE p.revenue > 0 ORDER BY crescimento_pct DESC`,
     description: "Categorias com maior crescimento percentual",
@@ -141,7 +141,7 @@ WHERE p.revenue > 0 ORDER BY crescimento_pct DESC`,
       { name: "metric", type: "enum", values: ["receita", "volume", "crescimento"], default: "receita" },
     ],
     sql: `SELECT st.region as regiao, SUM(s.total_amount) as receita, SUM(s.quantity) as volume,
-  ROUND(AVG(s.total_amount)::decimal,2) as ticket_medio, COUNT(DISTINCT s.store_id) as lojas_ativas
+  ROUND(AVG(s.total_amount),2) as ticket_medio, COUNT(DISTINCT s.store_id) as lojas_ativas
 FROM postgresql.public.sales s
 JOIN postgresql.public.stores st ON s.store_id = st.id
 WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
@@ -169,8 +169,8 @@ ORDER BY {order_by} DESC`,
     ],
     sql: `SELECT st.type as tipo, COUNT(DISTINCT st.id) as qtd_lojas,
   SUM(s.total_amount) as receita, SUM(s.quantity) as volume,
-  ROUND((SUM(s.total_amount)/NULLIF(COUNT(DISTINCT st.id),0))::decimal,2) as receita_por_loja,
-  ROUND(AVG(s.total_amount)::decimal,2) as ticket_medio
+  ROUND((SUM(s.total_amount)/NULLIF(COUNT(DISTINCT st.id),0)),2) as receita_por_loja,
+  ROUND(AVG(s.total_amount),2) as ticket_medio
 FROM postgresql.public.sales s
 JOIN postgresql.public.stores st ON s.store_id = st.id
 WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
@@ -229,7 +229,7 @@ ORDER BY mes`,
     parameters: [
       { name: "period", type: "period", default: "last_month" },
       { name: "region", type: "region", default: "todas" },
-      { name: "threshold", type: "number", default: "30" },
+      { name: "threshold", type: "number", default: "0" },
     ],
     sql: `WITH store_sales AS (
   SELECT st.name, st.city, st.region, st.type, SUM(s.total_amount) as revenue
@@ -241,11 +241,12 @@ ORDER BY mes`,
   SELECT region, AVG(revenue) as avg_revenue FROM store_sales GROUP BY region
 )
 SELECT ss.name as loja, ss.city as cidade, ss.region as regiao, ss.type as tipo,
-  ROUND(ss.revenue::decimal,2) as receita,
-  ROUND(ra.avg_revenue::decimal,2) as media_regional,
-  ROUND(((ss.revenue-ra.avg_revenue)/NULLIF(ra.avg_revenue,0)*100)::decimal,1) as gap_pct
+  ROUND(CAST(ss.revenue AS DECIMAL),2) as receita,
+  ROUND(CAST(ra.avg_revenue AS DECIMAL),2) as media_regional,
+  ROUND(CAST(((ss.revenue-ra.avg_revenue)/NULLIF(ra.avg_revenue,0)*100) AS DECIMAL),1) as gap_pct
 FROM store_sales ss JOIN regional_avg ra ON ss.region = ra.region
-WHERE ss.revenue < ra.avg_revenue * (1 - {threshold}/100.0) {region_filter}
+WHERE ss.revenue < ra.avg_revenue * (1 - {threshold}/100.0)
+  AND (ss.region = '{region}' OR '{region}' = 'todas')
 ORDER BY gap_pct ASC LIMIT 10`,
     description: "Lojas com vendas abaixo da média regional",
     example: "Quais lojas do Sudeste venderam 30% abaixo da média?",
@@ -269,10 +270,10 @@ ORDER BY gap_pct ASC LIMIT 10`,
       { name: "limit", type: "number", default: "10" },
     ],
     sql: `SELECT p.name as produto, p.category as categoria,
-  ROUND(SUM(s.quantity)::decimal,0) as volume_total,
-  ROUND((SUM(s.quantity)/NULLIF(COUNT(DISTINCT s.sale_date),0))::decimal,1) as media_diaria,
+  ROUND(SUM(s.quantity),0) as volume_total,
+  ROUND((SUM(s.quantity)/NULLIF(COUNT(DISTINCT s.sale_date),0)),1) as media_diaria,
   COUNT(DISTINCT s.store_id) as lojas_ativas,
-  ROUND((SUM(s.quantity)/NULLIF(COUNT(DISTINCT s.store_id),0))::decimal,1) as media_por_loja
+  ROUND((SUM(s.quantity)/NULLIF(COUNT(DISTINCT s.store_id),0)),1) as media_por_loja
 FROM postgresql.public.sales s
 JOIN postgresql.public.products p ON s.product_id = p.id
 WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
@@ -303,8 +304,8 @@ LIMIT {limit}`,
       { name: "category", type: "category", default: "todas" },
     ],
     sql: `SELECT p.category as categoria,
-  ROUND(AVG(s.unit_price-p.cost_price)::decimal,2) as margem_brl,
-  ROUND((AVG(s.unit_price-p.cost_price)/AVG(s.unit_price)*100)::decimal,1) as margem_pct,
+  ROUND(AVG(s.unit_price-p.cost_price),2) as margem_brl,
+  ROUND((AVG(s.unit_price-p.cost_price)/AVG(s.unit_price)*100),1) as margem_pct,
   SUM(s.total_amount) as receita,
   SUM(s.quantity) as volume
 FROM postgresql.public.sales s
@@ -342,14 +343,14 @@ ORDER BY margem_pct DESC`,
   WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
   GROUP BY 1
 ), trend AS (
-  SELECT REGR_SLOPE(receita, EXTRACT(EPOCH FROM mes)) as slope, AVG(receita) as avg_rev FROM monthly
+  SELECT REGR_SLOPE(receita, TO_UNIXTIME(mes)) as slope, AVG(receita) as avg_rev FROM monthly
 ), last_m AS (
   SELECT receita FROM monthly ORDER BY mes DESC LIMIT 1
 )
-SELECT ROUND(lm.receita::decimal,2) as receita_ultimo_mes,
-  ROUND((lm.receita + t.slope*30*86400)::decimal,2) as projecao_mes1,
-  ROUND((lm.receita + t.slope*60*86400)::decimal,2) as projecao_mes2,
-  ROUND((lm.receita + t.slope*90*86400)::decimal,2) as projecao_mes3,
+SELECT ROUND(CAST(lm.receita AS DECIMAL),2) as receita_ultimo_mes,
+  ROUND(CAST((lm.receita + t.slope*30*86400) AS DECIMAL),2) as projecao_mes1,
+  ROUND(CAST((lm.receita + t.slope*60*86400) AS DECIMAL),2) as projecao_mes2,
+  ROUND(CAST((lm.receita + t.slope*90*86400) AS DECIMAL),2) as projecao_mes3,
   CASE WHEN t.slope > 0 THEN 'Crescimento' ELSE 'Queda' END as direcao
 FROM last_m lm, trend t`,
     description: "Previsão de vendas usando regressão linear",
@@ -373,8 +374,8 @@ FROM last_m lm, trend t`,
       { name: "region", type: "region", default: "todas" },
     ],
     sql: `SELECT st.region as regiao,
-  ROUND(AVG(daily.revenue)::decimal,2) as receita_media_diaria,
-  ROUND((SUM(daily.revenue)/NULLIF(SUM(daily.transactions),0))::decimal,2) as ticket_medio,
+  ROUND(AVG(daily.revenue),2) as receita_media_diaria,
+  ROUND((SUM(daily.revenue)/NULLIF(SUM(daily.transactions),0)),2) as ticket_medio,
   SUM(daily.revenue) as receita_total,
   SUM(daily.transactions) as total_transacoes
 FROM (
@@ -413,7 +414,7 @@ ORDER BY ticket_medio DESC`,
   SUM(s.total_amount) as receita,
   SUM(s.quantity) as volume,
   COUNT(*) as transacoes,
-  ROUND(AVG(s.total_amount)::decimal,2) as ticket_medio
+  ROUND(AVG(s.total_amount),2) as ticket_medio
 FROM postgresql.public.sales s
 WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
 GROUP BY DATE_TRUNC('month', s.sale_date)
@@ -445,8 +446,8 @@ ORDER BY mes DESC`,
   JOIN postgresql.public.products p ON s.product_id = p.id
   WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE {category_filter})
 SELECT p.name as produto, p.category as categoria,
-  ROUND(SUM(s.total_amount)::decimal,2) as receita,
-  ROUND((SUM(s.total_amount)/(SELECT t FROM total)*100)::decimal,1) as participacao_pct
+  ROUND(SUM(s.total_amount),2) as receita,
+  ROUND((SUM(s.total_amount)/(SELECT t FROM total)*100),1) as participacao_pct
 FROM postgresql.public.sales s
 JOIN postgresql.public.products p ON s.product_id = p.id
 WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE {category_filter}
@@ -478,12 +479,12 @@ LIMIT 10`,
       { name: "period", type: "period", default: "current_month" },
     ],
     sql: `SELECT
-  (SELECT ROUND(SUM(total_amount)::decimal,2) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as receita,
+  (SELECT ROUND(SUM(total_amount),2) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as receita,
   (SELECT COUNT(*) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as transacoes,
-  (SELECT ROUND(AVG(total_amount)::decimal,2) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as ticket_medio,
+  (SELECT ROUND(AVG(total_amount),2) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as ticket_medio,
   (SELECT COUNT(DISTINCT product_id) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as produtos_ativos,
   (SELECT COUNT(DISTINCT store_id) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as lojas_ativas,
-  (SELECT ROUND(AVG(unit_price)::decimal,2) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as preco_medio`,
+  (SELECT ROUND(AVG(unit_price),2) FROM postgresql.public.sales WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE) as preco_medio`,
     description: "Visão geral de vendas no período",
     example: "Como estão as vendas este mês?",
   },
@@ -505,10 +506,10 @@ LIMIT 10`,
       { name: "period", type: "period", default: "last_12_months" },
     ],
     sql: `SELECT p.name as produto, p.category as categoria,
-  ROUND(AVG(s.unit_price)::decimal,2) as preco_medio,
-  ROUND(SUM(s.quantity)::decimal,0) as volume_total,
-  ROUND(SUM(s.total_amount)::decimal,2) as receita_total,
-  ROUND((STDDEV(s.unit_price)/NULLIF(AVG(s.unit_price),0)*100)::decimal,1) as volatilidade_preco,
+  ROUND(AVG(s.unit_price),2) as preco_medio,
+  ROUND(SUM(s.quantity),0) as volume_total,
+  ROUND(SUM(s.total_amount),2) as receita_total,
+  ROUND((STDDEV(s.unit_price)/NULLIF(AVG(s.unit_price),0)*100),1) as volatilidade_preco,
   COUNT(*) as transacoes
 FROM postgresql.public.sales s
 JOIN postgresql.public.products p ON s.product_id = p.id
@@ -542,7 +543,7 @@ LIMIT 10`,
   SUM(CASE WHEN s.sale_date BETWEEN '2025-01-01' AND '2025-12-31' THEN s.total_amount ELSE 0 END) as receita_2025,
   ROUND(((SUM(CASE WHEN s.sale_date BETWEEN '2025-01-01' AND '2025-12-31' THEN s.total_amount ELSE 0 END) -
           SUM(CASE WHEN s.sale_date BETWEEN '2024-01-01' AND '2024-12-31' THEN s.total_amount ELSE 0 END)) /
-          NULLIF(SUM(CASE WHEN s.sale_date BETWEEN '2024-01-01' AND '2024-12-31' THEN s.total_amount ELSE 0 END),0)*100)::decimal,1) as crescimento_pct
+          NULLIF(SUM(CASE WHEN s.sale_date BETWEEN '2024-01-01' AND '2024-12-31' THEN s.total_amount ELSE 0 END),0)*100),1) as crescimento_pct
 FROM postgresql.public.sales s
 JOIN postgresql.public.products p ON s.product_id = p.id
 GROUP BY p.category
@@ -600,9 +601,9 @@ LIMIT {limit}`,
       { name: "region", type: "region", default: "todas" },
     ],
     sql: `SELECT p.category as categoria,
-  ROUND(AVG(s.unit_price)::decimal,2) as preco_medio,
-  ROUND(MIN(s.unit_price)::decimal,2) as preco_minimo,
-  ROUND(MAX(s.unit_price)::decimal,2) as preco_maximo,
+  ROUND(AVG(s.unit_price),2) as preco_medio,
+  ROUND(MIN(s.unit_price),2) as preco_minimo,
+  ROUND(MAX(s.unit_price),2) as preco_maximo,
   SUM(s.quantity) as volume
 FROM postgresql.public.sales s
 JOIN postgresql.public.products p ON s.product_id = p.id
@@ -639,7 +640,7 @@ ORDER BY preco_medio DESC`,
   COUNT(DISTINCT st.id) as lojas,
   SUM(s.total_amount) as receita,
   SUM(s.quantity) as volume,
-  ROUND(AVG(s.total_amount)::decimal,2) as ticket_medio
+  ROUND(AVG(s.total_amount),2) as ticket_medio
 FROM postgresql.public.sales s
 JOIN postgresql.public.stores st ON s.store_id = st.id
 JOIN postgresql.public.representatives r ON st.representative_id = r.id
@@ -679,9 +680,9 @@ LIMIT {limit}`,
   SELECT region, AVG(revenue) as avg_rev FROM rep_sales GROUP BY region
 )
 SELECT rs.name as representante, rs.region as regiao, rs.stores as lojas,
-  ROUND(rs.revenue::decimal,2) as receita,
-  ROUND(ra.avg_rev::decimal,2) as media_regional,
-  ROUND(((rs.revenue-ra.avg_rev)/NULLIF(ra.avg_rev,0)*100)::decimal,1) as gap_pct
+  ROUND(rs.revenue,2) as receita,
+  ROUND(ra.avg_rev,2) as media_regional,
+  ROUND(((rs.revenue-ra.avg_rev)/NULLIF(ra.avg_rev,0)*100),1) as gap_pct
 FROM rep_sales rs JOIN reg_avg ra ON rs.region = ra.region
 WHERE rs.revenue < ra.avg_rev
 ORDER BY gap_pct ASC LIMIT {limit}`,
@@ -705,7 +706,7 @@ ORDER BY gap_pct ASC LIMIT {limit}`,
     sql: `SELECT r.region as regiao,
   COUNT(DISTINCT r.id) as representantes,
   COUNT(DISTINCT st.id) as lojas,
-  ROUND(AVG(r.performance_score)::decimal,1) as score_medio,
+  ROUND(AVG(r.performance_score),1) as score_medio,
   COALESCE(SUM(s.total_amount),0) as receita_3m
 FROM postgresql.public.representatives r
 LEFT JOIN postgresql.public.stores st ON r.id = st.representative_id
@@ -741,10 +742,10 @@ ORDER BY receita_3m DESC`,
   SUM(r.quantity) as qtd_devolvida,
   COUNT(*) as ocorrencias,
   SUM(r.total_amount) as valor_devolvido,
-  ROUND((SUM(r.quantity)::decimal/
+  ROUND((SUM(r.quantity)/
     NULLIF((SELECT SUM(s2.quantity) FROM postgresql.public.sales s2
       WHERE s2.product_id = r.product_id
-        AND s2.sale_date >= {period_start} AND s2.sale_date <= CURRENT_DATE),0)*100)::decimal,1) as taxa_devolucao_pct
+        AND s2.sale_date >= {period_start} AND s2.sale_date <= CURRENT_DATE),0)*100),1) as taxa_devolucao_pct
 FROM postgresql.public.returns r
 JOIN postgresql.public.products p ON r.product_id = p.id
 WHERE r.return_date >= {period_start} AND r.return_date <= CURRENT_DATE
@@ -774,7 +775,7 @@ LIMIT {limit}`,
   COUNT(*) as ocorrencias,
   SUM(ret.total_amount) as valor_devolvido,
   SUM(s.total_amount) as receita_total,
-  ROUND((SUM(ret.total_amount)/NULLIF(SUM(s.total_amount),0)*100)::decimal,1) as taxa_devolucao_pct
+  ROUND((SUM(ret.total_amount)/NULLIF(SUM(s.total_amount),0)*100),1) as taxa_devolucao_pct
 FROM postgresql.public.returns ret
 JOIN postgresql.public.representatives r ON ret.representative_id = r.id
 JOIN postgresql.public.sales s ON s.representative_id = r.id
@@ -807,8 +808,8 @@ LIMIT {limit}`,
   COUNT(*) as ocorrencias,
   SUM(r.quantity) as qtd_devolvida,
   SUM(r.total_amount) as valor_devolvido,
-  ROUND((COUNT(*)::decimal/NULLIF((SELECT COUNT(*) FROM postgresql.public.returns
-    WHERE return_date >= {period_start} AND return_date <= CURRENT_DATE),0)*100)::decimal,1) as participacao_pct
+  ROUND((COUNT(*)/NULLIF((SELECT COUNT(*) FROM postgresql.public.returns
+    WHERE return_date >= {period_start} AND return_date <= CURRENT_DATE),0)*100),1) as participacao_pct
 FROM postgresql.public.returns r
 WHERE r.return_date >= {period_start} AND r.return_date <= CURRENT_DATE
 GROUP BY r.reason
@@ -837,8 +838,8 @@ ORDER BY ocorrencias DESC`,
   COALESCE(SUM(s.total_amount),0) as receita,
   COALESCE(SUM(s.quantity),0) as volume_vendido,
   COALESCE(SUM(ret.quantity),0) as qtd_devolvida,
-  ROUND((COALESCE(SUM(ret.total_amount),0)/NULLIF(COALESCE(SUM(s.total_amount),0),0)*100)::decimal,1) as taxa_devolucao,
-  ROUND(AVG(s.unit_price)::decimal,2) as preco_medio
+  ROUND((COALESCE(SUM(ret.total_amount),0)/NULLIF(COALESCE(SUM(s.total_amount),0),0)*100),1) as taxa_devolucao,
+  ROUND(AVG(s.unit_price),2) as preco_medio
 FROM postgresql.public.representatives r
 LEFT JOIN postgresql.public.stores st ON r.id = st.representative_id
 LEFT JOIN postgresql.public.sales s ON r.id = s.representative_id
@@ -853,161 +854,139 @@ LIMIT {limit}`,
     example: "Qual a performance completa dos representantes?",
   },
 
-  // ═══ 26. ROTAS - VISÃO GERAL ═══
+  // ═══ 26. DEVOLUÇÕES — IMPACTO NO LUCRO ═══
   {
-    id: "routes-overview",
-    category: "Logística",
+    id: "returns-profit-impact",
+    category: "Devoluções",
     patterns: [
-      "rota",
-      "rotas",
-      "trajeto",
-      "log[ií]stica",
-      "entregas?",
-      "visita (t[eé]cnica|comercial)",
-      "planejamento de rota",
-      "itiner[aá]rio",
-      "circuito",
+      "impacto (das |de )?devolu[cç]",
+      "devolu[cç]ões? (afetam|impactam|prejudicam|reduzem)",
+      "quanto (as |os )?devolu[cç]",
+      "preju[ií]zo (com |por )?devolu[cç]",
+      "devolu[cç]ões? (vs|x|versus|contra) (lucro|receita|faturamento)",
+      "perda (com |por )?devolu[cç]",
+      "custo (das |de )?devolu[cç]",
     ],
     parameters: [
       { name: "period", type: "period", default: "last_3_months" },
-      { name: "region", type: "region", default: "todas" },
-      { name: "limit", type: "number", default: "17" },
+      { name: "category", type: "category", default: "todas" },
     ],
-    sql: `SELECT rt.name as rota, r.name as representante, rt.region as regiao,
-  rt.weekly_distance_km as km_semanais,
-  rt.total_weekly_cost as custo_semanal,
-  COUNT(DISTINCT rs.store_id) as lojas,
-  COALESCE(SUM(s.total_amount),0) as receita,
-  ROUND((COALESCE(SUM(s.total_amount),0)/NULLIF(rt.total_weekly_cost*4,0))::decimal,2) as roi,
-  SUM(rs.visit_duration_min) as tempo_visitas_min,
-  ROUND(SUM(rs.distance_from_prev_km)::decimal,1) as distancia_total_km
-FROM postgresql.public.routes rt
-JOIN postgresql.public.representatives r ON rt.representative_id = r.id
-LEFT JOIN postgresql.public.route_stores rs ON rt.id = rs.route_id
-LEFT JOIN postgresql.public.sales s ON rs.store_id = s.store_id
-  AND s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
-WHERE rt.region = CASE WHEN '{region}' = 'todas' THEN rt.region ELSE '{region}' END
-GROUP BY rt.name, r.name, rt.region, rt.weekly_distance_km, rt.total_weekly_cost
-ORDER BY roi DESC
-LIMIT {limit}`,
-    description: "Visão geral de rotas: custo, receita e ROI",
-    example: "Qual rota tem melhor ROI?",
+    sql: `SELECT p.category as categoria,
+  SUM(s.total_amount) as receita_bruta,
+  COALESCE((SELECT SUM(r2.total_amount) FROM postgresql.public.returns r2
+    JOIN postgresql.public.products p2 ON r2.product_id = p2.id
+    WHERE p2.category = p.category AND r2.return_date >= {period_start} AND r2.return_date <= CURRENT_DATE),0) as valor_devolvido,
+  ROUND(CAST((COALESCE((SELECT SUM(r2.total_amount) FROM postgresql.public.returns r2
+    JOIN postgresql.public.products p2 ON r2.product_id = p2.id
+    WHERE p2.category = p.category AND r2.return_date >= {period_start} AND r2.return_date <= CURRENT_DATE),0)/NULLIF(SUM(s.total_amount),0)*100) AS DECIMAL),1) as taxa_devolucao_pct,
+  ROUND(CAST((SUM(s.total_amount)-COALESCE((SELECT SUM(r2.total_amount) FROM postgresql.public.returns r2
+    JOIN postgresql.public.products p2 ON r2.product_id = p2.id
+    WHERE p2.category = p.category AND r2.return_date >= {period_start} AND r2.return_date <= CURRENT_DATE),0)) AS DECIMAL),2) as receita_liquida
+FROM postgresql.public.sales s
+JOIN postgresql.public.products p ON s.product_id = p.id
+WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
+  {category_filter}
+GROUP BY p.category
+ORDER BY taxa_devolucao_pct DESC`,
+    description: "Impacto financeiro das devoluções no lucro por categoria",
+    example: "Quanto as devoluções impactam o lucro?",
   },
 
-  // ═══ 27. ROTAS - BREAKEVEN ═══
+  // ═══ 28. DEVOLUÇÕES — REGIÃO ═══
   {
-    id: "route-breakeven",
-    category: "Logística",
+    id: "returns-by-region",
+    category: "Devoluções",
     patterns: [
-      "breakeven",
-      "ponto de equil[ií]brio",
-      "quantos? clientes? (precisa|necess[aá]rio)",
-      "rota (vale|compensa|se paga)",
-      "vi[aá]vel",
-      "cust[o] benef[ií]cio",
-      "m[ií]nimo (de |para )?(vendas?|clientes?|faturamento)",
-      "cobre (o |os )?custos?",
+      "devolu[cç]ão (por |da |de )?regi",
+      "qual regi[aã]o (tem|teve) mais devolu",
+      "regi[aã]o com (maior|pior) (taxa |índice |de )?devolu",
     ],
     parameters: [
-      { name: "period", type: "period", default: "last_month" },
+      { name: "period", type: "period", default: "last_6_months" },
     ],
-    sql: `SELECT rt.name as rota, r.name as representante, rt.region,
-  rt.total_weekly_cost as custo_semanal,
-  rt.total_weekly_cost * 4 as custo_mensal,
-  COUNT(DISTINCT rs.store_id) as clientes,
-  COALESCE(SUM(s.total_amount),0) as receita_mensal,
-  ROUND(AVG(s.total_amount)::decimal,2) as ticket_medio,
-  CASE WHEN COALESCE(SUM(s.total_amount),0) >= rt.total_weekly_cost * 4
-    THEN 'Lucrativa' ELSE 'Prejuízo' END as status,
-  CASE WHEN AVG(s.total_amount) > 0
-    THEN GREATEST(0, CEIL((rt.total_weekly_cost * 4) / NULLIF(AVG(s.total_amount),0)))
-    ELSE 999 END as clientes_para_breakeven
-FROM postgresql.public.routes rt
-JOIN postgresql.public.representatives r ON rt.representative_id = r.id
-LEFT JOIN postgresql.public.route_stores rs ON rt.id = rs.route_id
-LEFT JOIN postgresql.public.sales s ON rs.store_id = s.store_id
-  AND s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
-GROUP BY rt.name, r.name, rt.region, rt.total_weekly_cost
-ORDER BY clientes_para_breakeven ASC`,
-    description: "Breakeven por rota: quantos clientes precisa para cobrir custos",
-    example: "Quantos clientes cada rota precisa para se pagar?",
+    sql: `SELECT st.region as regiao,
+  SUM(s.total_amount) as receita_bruta,
+  COALESCE((SELECT SUM(r2.total_amount) FROM postgresql.public.returns r2
+    JOIN postgresql.public.stores st2 ON r2.store_id = st2.id
+    WHERE st2.region = st.region AND r2.return_date >= {period_start} AND r2.return_date <= CURRENT_DATE),0) as valor_devolvido,
+  ROUND(CAST((COALESCE((SELECT SUM(r2.total_amount) FROM postgresql.public.returns r2
+    JOIN postgresql.public.stores st2 ON r2.store_id = st2.id
+    WHERE st2.region = st.region AND r2.return_date >= {period_start} AND r2.return_date <= CURRENT_DATE),0)/NULLIF(SUM(s.total_amount),0)*100) AS DECIMAL),1) as taxa_devolucao_pct,
+  ROUND(CAST((SUM(s.total_amount)-COALESCE((SELECT SUM(r2.total_amount) FROM postgresql.public.returns r2
+    JOIN postgresql.public.stores st2 ON r2.store_id = st2.id
+    WHERE st2.region = st.region AND r2.return_date >= {period_start} AND r2.return_date <= CURRENT_DATE),0)) AS DECIMAL),2) as receita_liquida
+FROM postgresql.public.sales s
+JOIN postgresql.public.stores st ON s.store_id = st.id
+WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
+GROUP BY st.region
+ORDER BY taxa_devolucao_pct DESC`,
+    description: "Devoluções por região com impacto no lucro líquido",
+    example: "Qual região tem maior taxa de devolução?",
   },
 
-  // ═══ 28. CIDADES - ANÁLISE ═══
+  // ═══ 29. DEVOLUÇÕES — POR CLIENTE/LOJA ═══
   {
-    id: "city-analysis",
-    category: "Logística",
+    id: "returns-by-store",
+    category: "Devoluções",
     patterns: [
-      "cidade",
-      "munic[ií]pio",
-      "densidade",
-      "penetra[cç][aã]o (de |no )?mercado",
-      "popula[cç][aã]o",
-      "habitantes?",
-      "mercado potencial",
-      "cobertura geogr[aá]fica",
+      "qual (cliente|loja) (tem|teve) mais devolu",
+      "cliente com (mais|maior) devolu",
+      "loja com (mais|maior) (taxa |índice |de )?devolu",
+      "quem (devolve|retorna|cancela) mais",
+      "top (clientes|lojas) (em |com |por )?devolu",
     ],
     parameters: [
       { name: "period", type: "period", default: "last_3_months" },
-      { name: "limit", type: "number", default: "25" },
+      { name: "limit", type: "number", default: "10" },
     ],
-    sql: `SELECT c.name as cidade, c.state as uf, c.region as regiao, c.population_estimate as populacao,
-  COUNT(DISTINCT st.id) as lojas,
-  COUNT(DISTINCT s.id) as vendas,
-  COALESCE(SUM(s.total_amount),0) as receita,
-  CASE WHEN c.population_estimate > 0
-    THEN ROUND((COUNT(DISTINCT st.id)::decimal / NULLIF(c.population_estimate,0) * 100000)::decimal,2)
-    ELSE 0 END as lojas_por_100k_hab,
-  CASE WHEN c.population_estimate > 0
-    THEN ROUND((COALESCE(SUM(s.total_amount),0) / NULLIF(c.population_estimate,0))::decimal,2)
-    ELSE 0 END as receita_per_capita
-FROM postgresql.public.cities c
-LEFT JOIN postgresql.public.stores st ON c.name = st.city AND c.state = st.state
-LEFT JOIN postgresql.public.sales s ON st.id = s.store_id
-  AND s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
-GROUP BY c.name, c.state, c.region, c.population_estimate
-ORDER BY receita_per_capita DESC
+    sql: `SELECT st.name as loja, st.city as cidade, st.region as regiao,
+  SUM(s.total_amount) as receita_bruta,
+  COALESCE(SUM(r.total_amount),0) as valor_devolvido,
+  COALESCE(COUNT(DISTINCT r.id),0) as qtd_devolucoes,
+  ROUND(CAST((COALESCE(SUM(r.total_amount),0)/NULLIF(SUM(s.total_amount),0)*100) AS DECIMAL),1) as taxa_devolucao_pct,
+  ROUND(CAST((SUM(s.total_amount)-COALESCE(SUM(r.total_amount),0)) AS DECIMAL),2) as receita_liquida
+FROM postgresql.public.sales s
+JOIN postgresql.public.stores st ON s.store_id = st.id
+LEFT JOIN postgresql.public.returns r ON s.store_id = r.store_id
+  AND r.return_date >= {period_start} AND r.return_date <= CURRENT_DATE
+WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
+GROUP BY st.name, st.city, st.region
+HAVING COALESCE(COUNT(DISTINCT r.id),0) > 0
+ORDER BY taxa_devolucao_pct DESC
 LIMIT {limit}`,
-    description: "Análise por cidade: penetração de mercado e receita per capita",
-    example: "Qual cidade tem maior receita per capita?",
+    description: "Clientes/lojas com maior taxa de devolução",
+    example: "Qual cliente tem mais devoluções?",
   },
 
-  // ═══ 29. ROTA - EFICIÊNCIA ═══
+  // ═══ 30. CUSTO DETALHADO POR PRODUTO ═══
   {
-    id: "route-efficiency",
-    category: "Logística",
+    id: "product-cost-breakdown",
+    category: "Financeiro",
     patterns: [
-      "efici[êe]ncia (da |de )?rota",
-      "custo (por |da )?rota",
-      "km por (cliente|venda|loja)",
-      "custo por visita",
-      "tempo (m[eé]dio|por) (visita|cliente|loja)",
-      "otimiza[cç][aã]o de rota",
-      "gargalo",
-      "rota (mais |menos )?(cara|barata|eficiente)",
+      "custo (total|detalhado|completo|por|do) (produto|suco)",
+      "quanto custa (produzir|fabricar)",
+      "breakdown (de |do )?custo",
+      "composi[cç][aã]o (do |de )?custo",
+      "custo (de |com )?(marketing|log[ií]stica|embalagem|mat[eé]ria)",
+      "gasto (com |de )?(marketing|log[ií]stica|embalagem|produ[cç][aã]o)",
     ],
     parameters: [
-      { name: "period", type: "period", default: "last_month" },
+      { name: "limit", type: "number", default: "10" },
     ],
-    sql: `SELECT rt.name as rota, r.name as representante,
-  rt.weekly_distance_km as km_semana,
-  COUNT(DISTINCT rs.store_id) as lojas,
-  ROUND((rt.weekly_distance_km/NULLIF(COUNT(DISTINCT rs.store_id),0))::decimal,1) as km_por_loja,
-  SUM(rs.visit_duration_min) as tempo_total_min,
-  ROUND((SUM(rs.visit_duration_min)/NULLIF(COUNT(DISTINCT rs.store_id),0))::decimal,0) as min_por_loja,
-  rt.total_weekly_cost as custo_semana,
-  ROUND((rt.total_weekly_cost/NULLIF(COUNT(DISTINCT rs.store_id),0))::decimal,2) as custo_por_loja,
-  COALESCE(SUM(s.total_amount),0) as receita
-FROM postgresql.public.routes rt
-JOIN postgresql.public.representatives r ON rt.representative_id = r.id
-LEFT JOIN postgresql.public.route_stores rs ON rt.id = rs.route_id
-LEFT JOIN postgresql.public.sales s ON rs.store_id = s.store_id
-  AND s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
-GROUP BY rt.name, r.name, rt.weekly_distance_km, rt.total_weekly_cost
-ORDER BY custo_por_loja ASC
-LIMIT 17`,
-    description: "Eficiência por rota: km/loja, custo/loja, tempo/visita",
-    example: "Qual rota é mais eficiente em custo por loja?",
+    sql: `SELECT p.name as produto, p.category as categoria, p.sell_price as preco_venda, p.cost_price as custo_producao,
+  ROUND(CAST((p.sell_price * p.marketing_cost_pct/100) AS DECIMAL),2) as custo_marketing,
+  ROUND(CAST((p.sell_price * p.logistics_cost_pct/100) AS DECIMAL),2) as custo_logistica,
+  ROUND(CAST((p.sell_price * p.packaging_cost_pct/100) AS DECIMAL),2) as custo_embalagem,
+  p.marketing_cost_pct as marketing_pct, p.logistics_cost_pct as logistica_pct, p.packaging_cost_pct as embalagem_pct,
+  ROUND(CAST((p.cost_price + (p.sell_price*(p.marketing_cost_pct+p.logistics_cost_pct+p.packaging_cost_pct)/100)) AS DECIMAL),2) as custo_total,
+  ROUND(CAST((p.sell_price - (p.cost_price + (p.sell_price*(p.marketing_cost_pct+p.logistics_cost_pct+p.packaging_cost_pct)/100))) AS DECIMAL),2) as lucro_unitario,
+  ROUND(CAST(((p.sell_price - (p.cost_price + (p.sell_price*(p.marketing_cost_pct+p.logistics_cost_pct+p.packaging_cost_pct)/100)))/p.sell_price*100) AS DECIMAL),1) as margem_liquida_pct
+FROM postgresql.public.products p
+WHERE p.is_active = true
+ORDER BY margem_liquida_pct DESC
+LIMIT {limit}`,
+    description: "Custo detalhado por produto: produção, marketing, logística, embalagem",
+    example: "Quanto custa produzir cada suco considerando marketing e logística?",
   },
 ];
 
@@ -1017,28 +996,28 @@ LIMIT 17`,
 
 export const periodPresets: Record<string, { start: string; prevStart: string; label: string }> = {
   current_month: {
-    start: "DATE_TRUNC('month', CURRENT_DATE)",
-    prevStart: "DATE_TRUNC('month', DATE_ADD('month', -1, CURRENT_DATE))",
+    start: "DATE_TRUNC('month', DATE '2025-12-01')",
+    prevStart: "DATE_TRUNC('month', DATE_ADD('month', -1, DATE '2025-12-01'))",
     label: "este mês",
   },
   last_month: {
-    start: "DATE_TRUNC('month', DATE_ADD('month', -1, CURRENT_DATE))",
-    prevStart: "DATE_TRUNC('month', DATE_ADD('month', -2, CURRENT_DATE))",
+    start: "DATE_TRUNC('month', DATE_ADD('month', -1, DATE '2025-12-01'))",
+    prevStart: "DATE_TRUNC('month', DATE_ADD('month', -2, DATE '2025-12-01'))",
     label: "último mês",
   },
   last_3_months: {
-    start: "DATE_ADD('month', -3, CURRENT_DATE)",
-    prevStart: "DATE_ADD('month', -6, CURRENT_DATE)",
+    start: "DATE_ADD('month', -3, DATE '2025-12-31')",
+    prevStart: "DATE_ADD('month', -6, DATE '2025-12-31')",
     label: "últimos 3 meses",
   },
   last_6_months: {
-    start: "DATE_ADD('month', -6, CURRENT_DATE)",
-    prevStart: "DATE_ADD('month', -12, CURRENT_DATE)",
+    start: "DATE_ADD('month', -6, DATE '2025-12-31')",
+    prevStart: "DATE_ADD('month', -12, DATE '2025-12-31')",
     label: "últimos 6 meses",
   },
   last_12_months: {
-    start: "DATE_ADD('month', -12, CURRENT_DATE)",
-    prevStart: "DATE_ADD('month', -24, CURRENT_DATE)",
+    start: "DATE_ADD('month', -12, DATE '2025-12-31')",
+    prevStart: "DATE_ADD('month', -24, DATE '2025-12-31')",
     label: "último ano",
   },
   year_2024: {

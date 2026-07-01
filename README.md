@@ -92,22 +92,18 @@ O sistema de templates cobre ~90% das perguntas com 100% de precisão (zero aluc
 ## Deploy no Railway
 
 ```bash
-# Instalar Railway CLI
 npm i -g @railway/cli
-
-# Login e deploy
 railway login
-railway init
-railway up
+cd web && railway up
 ```
 
-O Railway provisiona PostgreSQL automaticamente. Configure as variáveis de ambiente no dashboard:
+Guia completo: [docs/RAILWAY_DEPLOY.md](docs/RAILWAY_DEPLOY.md)
 
-```
-TRINO_URL=http://localhost:8080
-OPENAI_API_KEY=sk-...
-DATABASE_URL=postgres://...  # Railway fornece automaticamente
-```
+| Recurso | Tier Gratuito | Developer ($5/mês) |
+|---------|--------------|---------------------|
+| Next.js | 512MB | 2GB |
+| PostgreSQL | 1GB | 2GB |
+| Ollama (IA) | ❌ Não cabe | +$5 (4GB) |
 
 ## Tecnologias
 

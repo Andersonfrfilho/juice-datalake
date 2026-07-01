@@ -140,6 +140,9 @@ function resolveSQL(template: QuestionTemplate, params: Record<string, string>):
   const period = periodPresets[params.period] || periodPresets.last_3_months;
   sql = sql.replace(/\{period_start\}/g, period.start);
   sql = sql.replace(/\{prev_period_start\}/g, period.prevStart);
+  sql = sql.replace(/CURRENT_DATE\b/g, "DATE '2025-12-31'");
+  sql = sql.replace(/'\{region\}'/g, `'${params.region}'`);
+  sql = sql.replace(/\{region\}/g, params.region || "todas");
 
   const regionClause = regionValues[params.region] || "1=1";
   sql = sql.replace(/\{region_filter\}/g, params.region === "todas" ? "" : `AND ${regionClause}`);

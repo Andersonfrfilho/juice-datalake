@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "cd tests && npx tsx src/validate.ts"
+    "test": "cd tests && npx tsx src/validate.ts",
+    "migrate": "node scripts/migrate.js",
+    "migrate:status": "node scripts/migrate.js --status"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.0",
@@ -22,8 +24,10 @@
     "clsx": "^2.1.0",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.400.0",
+    "marked": "^18.0.5",
     "next": "^14.2.0",
     "openai": "^4.52.0",
+    "pg": "^8.22.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "recharts": "^2.12.0",

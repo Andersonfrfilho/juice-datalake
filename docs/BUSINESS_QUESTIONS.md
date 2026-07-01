@@ -1,352 +1,532 @@
 # Business Questions: Marketing & Negócios
 
-Documento-guia com as perguntas essenciais que times de marketing e negócios devem fazer ao data lake da distribuidora de sucos. Cada pergunta inclui objetivo de negócio, parâmetros aceitáveis, e o que esperar da resposta.
+Documento-guia com **31 perguntas** de negócio respondidas pelo data lake da distribuidora de sucos. Cada pergunta inclui objetivo, parâmetros e decisão esperada. O sistema funciona 100% com templates determinísticos — sem dependência de IA.
 
 ---
 
 ## Categoria 1: Performance de Produto
 
-### Q1: Qual suco está vendendo mais?
+### Q1: Qual suco está vendendo mais? *(top-product)*
 
 **Objetivo:** Identificar o produto campeão de vendas para priorizar estoque, produção e campanhas.
 
-**Parâmetros:**
-| Parâmetro  | Tipo     | Exemplos                                      |
-| ---------- | -------- | --------------------------------------------- |
-| Métrica    | `enum`   | `receita`, `volume` (unidades), `margem`      |
-| Período    | `string` | "último mês", "último trimestre", "2024"      |
-| Região     | `string` | "Sudeste", "todas", "São Paulo"               |
-| Categoria  | `string` | "citrico", "tropical", "tradicional", "todas" |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Métrica | `enum` | `receita`, `volume` |
+| Período | `string` | "último mês", "último trimestre", "2024" |
+| Região | `string` | "Sudeste", "todas" |
+| Categoria | `string` | "citrico", "tropical", "todas" |
+| Limit | `number` | 5, 10 |
 
-**Exemplo de pergunta:** _"Qual suco gerou mais receita no Sudeste no último trimestre?"_
+**Exemplo:** _"Qual suco gerou mais receita no Sudeste no último trimestre?"_
 
-**Resposta esperada:** Ranking com nome do suco, receita total, volume vendido, participação % na receita da região.
-
-**Decisão de negócio:** Aumentar produção do campeão, replicar estratégia em outras regiões.
+**Decisão:** Aumentar produção do campeão, replicar estratégia em outras regiões.
 
 ---
 
-### Q2: Qual sabor/categoria está crescendo mais?
+### Q2: Qual sabor/categoria está crescendo mais? *(growing-category)*
 
-**Objetivo:** Identificar tendências de consumo para direcionar desenvolvimento de produtos e marketing.
+**Objetivo:** Identificar tendências de consumo para direcionar P&D e marketing.
 
-**Parâmetros:**
-| Parâmetro  | Tipo     | Exemplos                                |
-| ---------- | -------- | --------------------------------------- |
-| Métrica    | `enum`   | `crescimento_receita`, `crescimento_volume` |
-| Período    | `string` | "trimestre a trimestre", "ano a ano"    |
-| Lookback   | `number` | 3, 6, 12 (meses)                        |
-| Categoria  | `string` | "todas", "premium", "light"             |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "últimos 6 meses", "2025" |
 
-**Exemplo:** _"Qual categoria de suco mais cresceu em volume nos últimos 6 meses comparado com o semestre anterior?"_
+**Exemplo:** _"Qual categoria mais cresceu em volume nos últimos 6 meses?"_
 
-**Resposta esperada:** Categoria, crescimento %, fatores (novas lojas, aumento de preço, sazonalidade).
-
-**Decisão de negócio:** Investir em marketing e P&D na categoria em ascensão.
+**Decisão:** Investir em marketing e P&D na categoria em ascensão.
 
 ---
 
-### Q3: Quais são os sucos com pior desempenho?
+### Q3: Quais são os sucos com pior desempenho? *(worst-product)*
 
 **Objetivo:** Identificar produtos para possível descontinuação ou reformulação.
 
-**Parâmetros:**
-| Parâmetro | Tipo     | Exemplos                             |
-| --------- | -------- | ------------------------------------ |
-| Métrica   | `enum`   | `receita`, `volume`, `margem`        |
-| Threshold | `number` | 10-30 (%) — produtos abaixo de X% da receita total |
-| Período   | `string` | "último trimestre", "últimos 6 meses" |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre", "2025" |
+| Região | `string` | "todas", "Sudeste" |
+| Limit | `number` | 5, 10 |
 
-**Exemplo:** _"Quais sucos representam menos de 10% da receita total nos últimos 6 meses?"_
+**Exemplo:** _"Quais sucos menos venderam no último ano?"_
 
-**Resposta esperada:** Lista de sucos com receita, volume, e % do total.
+**Decisão:** Descontinuar ou reformular produtos de baixo desempenho.
 
-**Decisão de negócio:** Descontinuar ou reformular produtos de baixo desempenho.
+---
+
+### Q4: Qual a participação de cada produto na receita? *(market-share)*
+
+**Objetivo:** Entender o peso de cada produto no faturamento total.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Categoria | `string` | "todas", "premium" |
+
+**Exemplo:** _"Qual a participação de cada sabor na receita total?"_
+
+**Decisão:** Identificar dependência excessiva de poucos produtos.
 
 ---
 
 ## Categoria 2: Análise Regional e Geográfica
 
-### Q4: Qual região está performando melhor?
+### Q5: Qual região está performando melhor? *(top-region)*
 
 **Objetivo:** Direcionar investimento de expansão e marketing regional.
 
-**Parâmetros:**
-| Parâmetro  | Tipo     | Exemplos                                |
-| ---------- | -------- | --------------------------------------- |
-| Métrica    | `enum`   | `receita_total`, `crescimento`, `ticket_medio` |
-| Período    | `string` | "último trimestre", "2025"              |
-| Agrupamento| `enum`   | `região`, `estado`, `cidade`            |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Métrica | `enum` | `receita`, `volume` |
+| Período | `string` | "este mês", "2025" |
 
-**Exemplo:** _"Qual região teve maior crescimento de receita em 2025 vs 2024?"_
+**Exemplo:** _"Qual região vendeu mais este mês?"_
 
-**Resposta esperada:** Ranking de regiões com receita, crescimento %, ticket médio, volume vendido.
-
-**Decisão de negócio:** Abrir mais lojas na região de maior crescimento, investigar regiões estagnadas.
+**Decisão:** Abrir mais lojas na região de maior crescimento.
 
 ---
 
-### Q5: Onde devemos abrir a próxima loja?
+### Q6: Compare vendas entre tipos de loja *(store-type-compare)*
 
-**Objetivo:** Identificar cidades/regiões com demanda não atendida (alta densidade populacional sem cobertura de lojas).
+**Objetivo:** Entender qual canal (supermercado, conveniência, atacado) performa melhor.
 
-**Parâmetros:**
-| Parâmetro       | Tipo     | Exemplos                    |
-| --------------- | -------- | --------------------------- |
-| Cobertura atual | —        | Cidades sem lojas da rede   |
-| Potencial       | —        | Baseado em vendas de cidades similares |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Métrica | `enum` | `receita`, `ticket_medio` |
+| Período | `string` | "último trimestre" |
 
-**Exemplo:** _"Quais cidades com mais de 200k habitantes no Nordeste não têm nossas lojas e têm potencial de vendas?"_
+**Exemplo:** _"Qual tipo de loja tem maior ticket médio?"_
 
-**Resposta esperada:** Lista de cidades candidatas com população estimada, vendas médias de cidades similares, projeção de receita.
-
-**Decisão de negócio:** Priorizar abertura de lojas nas top 3 cidades candidatas.
+**Decisão:** Investir no formato de loja mais rentável.
 
 ---
 
-### Q6: Compare vendas entre tipos de loja
+### Q7: Análise de penetração por cidade *(city-analysis)*
 
-**Objetivo:** Entender qual canal de venda (supermercado, conveniência, atacado) performa melhor.
+**Objetivo:** Identificar cidades com maior potencial de expansão baseado em receita per capita e penetração de mercado.
 
-**Parâmetros:**
-| Parâmetro | Tipo     | Exemplos                                    |
-| --------- | -------- | ------------------------------------------- |
-| Métrica   | `enum`   | `receita_media_por_loja`, `ticket_medio`, `volume` |
-| Período   | `string` | "último trimestre", "2025"                  |
-| Região    | `string` | (opcional) filtrar por região               |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
 
-**Exemplo:** _"Qual tipo de loja tem maior ticket médio na região Sul?"_
+**Exemplo:** _"Qual cidade tem maior receita per capita?"_
 
-**Resposta esperada:** Comparativo por tipo de loja com receita total, ticket médio, número de lojas, receita média por loja.
-
-**Decisão de negócio:** Investir no formato de loja mais rentável.
+**Decisão:** Priorizar cidades com alta receita per capita e baixa penetração.
 
 ---
 
-## Categoria 3: Sazonalidade e Previsão
+### Q8: Onde devemos abrir a próxima loja? *(planejamento estratégico)*
 
-### Q7: Qual a sazonalidade de vendas de cada categoria?
+**Objetivo:** Cruzar dados de população, receita per capita e cobertura atual para ranquear cidades candidatas.
+
+**Exemplo:** _"Quais cidades no Nordeste têm potencial de vendas?"_
+
+**Decisão:** Priorizar abertura nas top 3 cidades candidatas.
+
+---
+
+## Categoria 3: Sazonalidade e Tendências
+
+### Q9: Qual a sazonalidade das vendas? *(seasonality)*
 
 **Objetivo:** Planejar produção, estoque e campanhas de acordo com picos sazonais.
 
-**Parâmetros:**
-| Parâmetro  | Tipo     | Exemplos                                |
-| ---------- | -------- | --------------------------------------- |
-| Categoria  | `string` | "citrico", "tropical", "todas"          |
-| Período    | `string` | "últimos 12 meses", "últimos 2 anos"    |
-| Granularidade | `enum` | `mensal`, `semanal`                     |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Categoria | `string` | "citrico", "todas" |
+| Período | `string` | "último ano" |
 
-**Exemplo:** _"Qual o padrão sazonal de vendas de sucos cítricos nos últimos 2 anos?"_
+**Exemplo:** _"Qual o padrão sazonal de sucos cítricos no último ano?"_
 
-**Resposta esperada:** Série temporal com picos e vales identificados (ex: pico em dezembro-janeiro para cítricos).
-
-**Decisão de negócio:** Aumentar estoque em 30% nos meses de pico, campanhas promocionais nos vales.
+**Decisão:** Aumentar estoque em 30% nos meses de pico, campanhas nos vales.
 
 ---
 
-### Q8: Qual a previsão de vendas para os próximos 3 meses?
+### Q10: Qual a previsão de vendas para os próximos meses? *(forecast)*
 
-**Objetivo:** Projeção de demanda para planejamento financeiro e de produção.
+**Objetivo:** Projeção de demanda usando regressão linear sobre dados históricos.
 
-**Parâmetros:**
-| Parâmetro  | Tipo     | Exemplos                              |
-| ---------- | -------- | ------------------------------------- |
-| Horizonte  | `number` | 1-6 (meses)                           |
-| Categoria  | `string` | "todas", "premium"                    |
-| Região     | `string` | "todas", "Sudeste"                    |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Horizonte | `number` | 1-6 meses |
 
-**Exemplo:** _"Qual a previsão de vendas para os próximos 3 meses na região Nordeste?"_
+**Exemplo:** _"Qual a previsão de vendas para os próximos 3 meses?"_
 
-**Resposta esperada:** Projeção mensal com intervalo de confiança, baseada em tendência + sazonalidade histórica.
-
-**Decisão de negócio:** Ajustar ordens de produção, contratar equipe extra se necessário.
+**Decisão:** Ajustar produção, contratar equipe extra se necessário.
 
 ---
 
-### Q9: Em qual suco devemos investir mais nos próximos 3 meses?
+### Q11: Comparação ano contra ano (YoY) *(year-over-year)*
 
-**Objetivo:** Identificar o produto com maior potencial de crescimento no curto prazo.
+**Objetivo:** Analisar crescimento entre 2024 e 2025.
 
-**Parâmetros:**
-| Parâmetro     | Tipo     | Exemplos                |
-| ------------- | -------- | ----------------------- |
-| Horizonte     | `number` | 3 (meses)               |
-| Critério      | `enum`   | `crescimento`, `margem`, `potencial_combinado` |
-| Região        | `string` | (opcional)              |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Métrica | `enum` | `receita`, `volume` |
 
-**Exemplo:** _"Em qual suco devemos investir mais nos próximos 3 meses considerando tendência de crescimento e margem?"_
+**Exemplo:** _"Qual categoria cresceu mais em 2025 comparado com 2024?"_
 
-**Resposta esperada:** Ranking de sucos com score combinado (crescimento projetado × margem × sazonalidade favorável), com justificativa.
-
-**Decisão de negócio:** Alocar budget de marketing e produção no top 3 sucos.
+**Decisão:** Validar se estratégias de crescimento estão funcionando.
 
 ---
 
-## Categoria 4: Precificação e Margem
+### Q12: Comparação mês a mês *(monthly-comparison)*
 
-### Q10: Qual a margem média por categoria de suco?
+**Objetivo:** Acompanhar evolução mensal de vendas e identificar anomalias.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+
+**Exemplo:** _"Como foram as vendas mês a mês no último trimestre?"_
+
+**Decisão:** Detectar quedas repentinas, agir rapidamente.
+
+---
+
+## Categoria 4: Financeiro e Precificação
+
+### Q13: Qual a margem por categoria? *(margins)*
 
 **Objetivo:** Avaliar rentabilidade por linha de produto.
 
-**Parâmetros:**
-| Parâmetro | Tipo     | Exemplos                       |
-| --------- | -------- | ------------------------------ |
-| Período   | `string` | "último trimestre", "2025"     |
-| Agrupamento | `enum` | `categoria`, `sabor`, `tamanho` |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Categoria | `string` | "todas", "premium" |
 
-**Exemplo:** _"Qual a margem média por categoria de suco no último trimestre?"_
+**Exemplo:** _"Qual categoria tem melhor margem?"_
 
-**Resposta esperada:** Tabela com categoria, preço médio, custo médio, margem bruta (R$ e %), volume vendido.
-
-**Decisão de negócio:** Aumentar preço de categorias com margem baixa, promover categorias com margem alta.
+**Decisão:** Promover categorias com margem alta, revisar precificação das baixas.
 
 ---
 
-### Q11: Existe correlação entre preço e volume vendido?
+### Q14: Qual o ticket médio por região? *(avg-ticket)*
+
+**Objetivo:** Entender poder de compra regional.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Região | `string` | "todas", "Sudeste" |
+
+**Exemplo:** _"Qual o ticket médio por região?"_
+
+**Decisão:** Oferecer tamanhos maiores em ticket alto, econômicos em ticket baixo.
+
+---
+
+### Q15: Relação entre preço e volume *(price-volume)*
 
 **Objetivo:** Entender elasticidade-preço para otimizar precificação.
 
-**Parâmetros:**
-| Parâmetro  | Tipo     | Exemplos                     |
-| ---------- | -------- | ---------------------------- |
-| Produto    | `string` | "todos", "Laranja 500ml"     |
-| Período    | `string` | "último ano"                 |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último ano" |
 
-**Exemplo:** _"Quando o preço do suco de laranja 500ml variou, como o volume de vendas respondeu?"_
+**Exemplo:** _"Quando o preço variou, como o volume respondeu?"_
 
-**Resposta esperada:** Correlação preço × volume, elasticidade estimada.
+**Decisão:** Ajustar preço para maximizar receita (preço × volume).
 
-**Decisão de negócio:** Ajustar preço para maximizar receita (preço × volume).
+---
+
+### Q16: Preço médio por categoria *(avg-price)*
+
+**Objetivo:** Monitorar faixa de preços praticados.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Região | `string` | (opcional) |
+
+**Exemplo:** _"Qual o preço médio por categoria?"_
+
+**Decisão:** Identificar categorias com margem para aumento de preço.
 
 ---
 
 ## Categoria 5: Operações e Estoque
 
-### Q12: Quais lojas estão com vendas abaixo da média?
+### Q17: Quais lojas estão com vendas abaixo da média? *(underperforming-stores)*
 
 **Objetivo:** Identificar lojas com baixo desempenho para intervenção.
 
-**Parâmetros:**
-| Parâmetro | Tipo     | Exemplos                                    |
-| --------- | -------- | ------------------------------------------- |
-| Threshold | `number` | 20-50 (%) — lojas com vendas X% abaixo da média regional |
-| Período   | `string` | "último mês", "último trimestre"            |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Threshold | `number` | 0-30 (%) abaixo da média regional |
+| Período | `string` | "último mês" |
+| Região | `string` | (opcional) |
 
-**Exemplo:** _"Quais lojas do Sudeste venderam 30% abaixo da média regional no último mês?"_
+**Exemplo:** _"Quais lojas venderam abaixo da média no último mês?"_
 
-**Resposta esperada:** Lista de lojas com vendas, média regional, gap %, possível causa (cidade pequena, loja nova).
-
-**Decisão de negócio:** Visitar lojas underperforming, campanha local, possível fechamento.
+**Decisão:** Visitar lojas underperforming, campanha local, possível fechamento.
 
 ---
 
-### Q13: Qual o giro de produto por loja?
+### Q18: Qual o giro de produto? *(product-turnover)*
 
 **Objetivo:** Otimizar distribuição e evitar ruptura de estoque.
 
-**Parâmetros:**
-| Parâmetro | Tipo     | Exemplos                          |
-| --------- | -------- | --------------------------------- |
-| Produto   | `string` | "todos", "Laranja 350ml"          |
-| Período   | `string` | "último mês"                      |
-| Região    | `string` | (opcional)                        |
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último mês" |
+| Limit | `number` | 10 |
 
-**Exemplo:** _"Qual o giro médio diário de cada sabor de suco por loja no último mês?"_
+**Exemplo:** _"Qual o giro médio diário de cada sabor?"_
 
-**Resposta esperada:** Média de unidades vendidas por dia por loja para cada produto.
-
-**Decisão de negócio:** Ajustar frequência de reposição, reduzir estoque de produtos de giro baixo.
+**Decisão:** Ajustar frequência de reposição.
 
 ---
 
-## Categoria 6: Clientes e Mercado (Dados Externos / Estimados)
+### Q19: Mix de produtos por loja *(products-per-store)*
 
-### Q14: Qual o ticket médio por região?
+**Objetivo:** Analisar sortimento e variedade em cada ponto de venda.
 
-**Objetivo:** Entender poder de compra regional para precificação e sortimento.
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último mês" |
+| Região | `string` | (opcional) |
 
-**Parâmetros:**
-| Parâmetro | Tipo     | Exemplos                  |
-| --------- | -------- | ------------------------- |
-| Período   | `string` | "último trimestre"        |
-| Agrupamento | `enum` | `região`, `estado`        |
+**Exemplo:** _"Quantos produtos diferentes cada loja vendeu?"_
 
-**Exemplo:** _"Qual o ticket médio por região no último trimestre?"_
-
-**Resposta esperada:** Ticket médio (R$ por venda), volume médio por compra, preço médio por unidade.
-
-**Decisão de negócio:** Oferecer tamanhos maiores em regiões de ticket alto, econômicos em ticket baixo.
+**Decisão:** Padronizar sortimento entre lojas similares.
 
 ---
 
-### Q15: Quais sabores combinam bem para criar um combo promocional?
+## Categoria 6: Representantes e Força de Vendas
 
-**Objetivo:** Identificar produtos frequentemente comprados juntos para promoções cross-sell.
+### Q20: Qual representante mais vendeu? *(top-representatives)*
 
-**Parâmetros:**
-| Parâmetro   | Tipo     | Exemplos               |
-| ----------- | -------- | ---------------------- |
-| Suporte min | `number` | 5-10 (%) — % mínima de transações com a combinação |
-| Período     | `string` | "último trimestre"     |
+**Objetivo:** Ranquear a força de vendas por receita gerada.
 
-**Exemplo:** _"Quais sabores de suco são mais comprados juntos na mesma transação?"_
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Região | `string` | (opcional) |
+| Limit | `number` | 5, 10 |
 
-**Resposta esperada:** Pares de sabores com frequência de co-ocorrência, % de transações.
+**Exemplo:** _"Qual representante mais vendeu no último trimestre?"_
 
-**Decisão de negócio:** Criar combos promocionais com os pares mais frequentes.
+**Decisão:** Premiar top performers, replicar práticas dos melhores.
+
+---
+
+### Q21: Quais representantes estão abaixo da média? *(worst-representatives)*
+
+**Objetivo:** Identificar vendedores que precisam de coaching ou realocação.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Região | `string` | (opcional) |
+
+**Exemplo:** _"Quais representantes estão abaixo da média?"_
+
+**Decisão:** Treinamento, mentoria ou substituição.
+
+---
+
+### Q22: Distribuição de representantes por região *(representatives-by-region)*
+
+**Objetivo:** Analisar se a força de vendas está balanceada geograficamente.
+
+**Exemplo:** _"Quantos representantes por região?"_
+
+**Decisão:** Contratar ou realocar vendedores para regiões desbalanceadas.
+
+---
+
+### Q23: Performance completa do representante *(rep-performance-full)*
+
+**Objetivo:** Visão 360°: receita, volume, devoluções, score.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+
+**Exemplo:** _"Qual a performance completa dos representantes?"_
+
+**Decisão:** Avaliação de desempenho integrada para bônus e promoções.
+
+---
+
+## Categoria 7: Logística e Rotas
+
+### Q24: Visão geral das rotas *(routes-overview)*
+
+**Objetivo:** Comparar rotas por receita, custo e ROI.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Região | `string` | (opcional) |
+
+**Exemplo:** _"Qual rota tem melhor ROI?"_
+
+**Decisão:** Expandir rotas com alto retorno, revisar as deficitárias.
+
+---
+
+### Q25: Breakeven por rota *(route-breakeven)*
+
+**Objetivo:** Calcular quantos clientes cada rota precisa para se pagar.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último mês" |
+
+**Exemplo:** _"Quantos clientes cada rota precisa para se pagar?"_
+
+**Decisão:** Fechar ou redesenhar rotas com breakeven inviável.
+
+---
+
+### Q26: Eficiência das rotas *(route-efficiency)*
+
+**Objetivo:** Analisar km/loja, custo/loja e tempo de visita.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último mês" |
+
+**Exemplo:** _"Qual rota é mais eficiente em custo por loja?"_
+
+**Decisão:** Otimizar sequência de visitas, reduzir km rodado.
+
+---
+
+## Categoria 8: Devoluções e Qualidade
+
+### Q27: Devoluções por produto *(returns-analysis)*
+
+**Objetivo:** Identificar produtos com alta taxa de devolução.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+
+**Exemplo:** _"Qual produto tem mais devoluções?"_
+
+**Decisão:** Investigar qualidade, embalagem ou validade dos produtos problemáticos.
+
+---
+
+### Q28: Devoluções por representante *(returns-by-rep)*
+
+**Objetivo:** Identificar vendedores com alta taxa de devolução.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+
+**Exemplo:** _"Qual representante tem mais devoluções?"_
+
+**Decisão:** Treinar vendedores em práticas de venda adequadas.
+
+---
+
+### Q29: Motivos de devolução *(return-reasons)*
+
+**Objetivo:** Entender as causas-raiz das devoluções.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "últimos 6 meses" |
+
+**Exemplo:** _"Quais os principais motivos de devolução?"_
+
+**Decisão:** Ações corretivas direcionadas (ex: melhorar embalagem se "danificado" lidera).
+
+---
+
+### Q30: Impacto financeiro das devoluções *(returns-profit-impact)*
+
+**Objetivo:** Quantificar o prejuízo das devoluções: receita líquida = bruta − devoluções.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Categoria | `string` | (opcional) |
+
+**Exemplo:** _"Quanto as devoluções impactam o lucro?"_
+
+**Decisão:** Calcular ROI de investimentos em qualidade para reduzir devoluções.
+
+---
+
+### Q31: Devoluções por região *(returns-by-region)*
+
+**Objetivo:** Identificar regiões com maior taxa de devolução, incluindo lucro líquido estimado.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "últimos 6 meses" |
+
+**Exemplo:** _"Qual região tem maior taxa de devolução?"_
+
+**Decisão:** Investigar problemas logísticos ou de armazenamento regionais.
+
+---
+
+### Q32: Qual cliente/loja tem mais devoluções? *(returns-by-store)*
+
+**Objetivo:** Identificar clientes problemáticos com alta taxa de devolução para ação comercial direta.
+
+| Parâmetro | Tipo | Exemplos |
+|-----------|------|----------|
+| Período | `string` | "último trimestre" |
+| Limit | `number` | 5, 10 |
+
+**Exemplo:** _"Qual cliente tem mais devoluções?"_
+
+**Decisão:** Visitar o cliente, entender causa-raiz, renegociar contrato ou condições.
 
 ---
 
 ## Resumo: Frequência de Uso por Time
 
-| Time          | Perguntas Essenciais                          | Frequência       |
-| ------------- | ----------------------------------------------| ---------------- |
-| Marketing     | Q1, Q2, Q3, Q7, Q9, Q11, Q15                  | Semanal          |
-| Vendas        | Q4, Q5, Q6                                    | Quinzenal        |
-| Operações     | Q12, Q13                                       | Semanal          |
-| Financeiro    | Q10, Q11                                       | Mensal           |
-| Executivo     | Q1, Q4, Q8, Q9                                 | Mensal/Trimestral|
+| Time | Perguntas | Frequência |
+|------|-----------|------------|
+| **Marketing** | Q1-Q4, Q9-Q12 | Semanal |
+| **Vendas** | Q5-Q8, Q20-Q23 | Quinzenal |
+| **Operações** | Q17-Q19, Q24-Q26 | Semanal |
+| **Financeiro** | Q13-Q16, Q30-Q31 | Mensal |
+| **Qualidade** | Q27-Q31 | Mensal |
+| **Executivo** | Q1, Q5, Q10, Q24, Q30 | Mensal/Trimestral |
 
 ---
 
-## Como o Data Lake Responde Essas Perguntas
+## Glossário de Termos Técnicos
 
-Cada pergunta é traduzida para uma query SQL federada que o **Trino** executa:
+| Termo | Significado |
+|-------|-------------|
+| **Ticket médio** | Valor médio gasto por compra |
+| **Receita bruta** | Faturamento total (quantidade × preço unitário) |
+| **Receita líquida** | Receita bruta menos valor devolvido |
+| **Margem** | Lucro bruto (preço de venda − custo de produção) |
+| **ROI** | Retorno sobre investimento (receita ÷ custo da rota) |
+| **Breakeven** | Ponto de equilíbrio — receita iguala os custos |
+| **Market share** | Participação percentual de um produto no mercado total |
+| **YoY** | Year-over-Year — comparação anual |
+| **Sazonalidade** | Variação nas vendas conforme a época do ano |
+| **Giro** | Velocidade com que o produto é vendido e reposto |
+| **Elasticidade** | Sensibilidade da demanda à variação de preço |
+| **Score de performance** | Nota de avaliação do representante (0-5) |
+| **Receita per capita** | Receita total dividida pela população da cidade |
+| **Taxa de devolução** | Percentual do faturamento perdido com devoluções |
+| **Gap percentual** | Diferença percentual entre valor real e média de referência |
 
-1. **Dados transacionais** (vendas do dia, preços atuais) → PostgreSQL
-2. **Dados históricos** (vendas de meses/anos anteriores) → MinIO (Parquet)
-3. **Dados agregados** (pré-calculados para performance) → MinIO (daily_aggregations)
-4. **Junção de fontes** → Trino faz JOIN entre PostgreSQL e MinIO em uma única query
+---
 
-**Exemplo — Q9 ("Em qual suco investir nos próximos 3 meses?"):**
+## Como o Sistema Funciona
 
-```sql
-WITH recent_trend AS (
-  SELECT product_id, 
-         SUM(total_amount) as revenue_3m,
-         AVG(total_amount) as avg_monthly,
-         REGR_SLOPE(total_amount, EXTRACT(DAY FROM sale_date)) as trend_slope
-  FROM hive.datalake.sales
-  WHERE sale_date >= DATE_ADD('month', -6, CURRENT_DATE)
-  GROUP BY product_id
-),
-product_margins AS (
-  SELECT p.id, p.name, p.category,
-         AVG(s.unit_price - p.cost_price) / AVG(s.unit_price) as margin_pct
-  FROM postgresql.public.products p
-  JOIN hive.datalake.sales s ON p.id = s.product_id
-  WHERE s.sale_date >= DATE_ADD('month', -3, CURRENT_DATE)
-  GROUP BY p.id, p.name, p.category
-)
-SELECT pm.name, pm.category,
-       ROUND(rt.revenue_3m, 2) as revenue_last_3m,
-       ROUND(pm.margin_pct * 100, 1) as margin_pct,
-       ROUND(rt.trend_slope, 4) as growth_trend,
-       (rt.trend_slope * 0.5 + pm.margin_pct * 0.5) as investment_score
-FROM recent_trend rt
-JOIN product_margins pm ON rt.product_id = pm.id
-ORDER BY investment_score DESC
-LIMIT 5
+O chat usa **29 templates determinísticos** que cobrem as 31 perguntas acima:
+
+```
+Usuário pergunta → MatchTemplate (regex + keyword) → Extrai parâmetros
+→ Resolve SQL (período, região, categoria) → Executa no Trino → Resposta
 ```
 
-**Nota:** A query acima é gerada automaticamente pela IA com base na pergunta do usuário e no schema do data lake.
+- **Zero dependência de IA** para 90%+ das perguntas
+- **Ollama local** (qwen2.5:3b) como fallback para perguntas fora dos templates
+- **Tempo de resposta**: <1s para templates, 3-7s com Ollama

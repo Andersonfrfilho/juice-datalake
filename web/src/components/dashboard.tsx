@@ -12,20 +12,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend,
 } from "recharts";
+import * as RadixTooltip from "@radix-ui/react-tooltip";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { DashboardKPI } from "@/types";
 
@@ -96,7 +86,7 @@ export function Dashboard() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto p-4 space-y-6">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -114,39 +104,43 @@ export function Dashboard() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
           <KpiCard
             icon={<DollarSign className="w-4 h-4" />}
             label="Vendas do Mês"
             value={formatCurrency(kpi.currentMonthSales)}
             change={kpi.changePercent}
+            tooltip="Receita total gerada no mês de referência. Soma de todas as vendas (quantidade × preço unitário) no período."
           />
           <KpiCard
             icon={<Receipt className="w-4 h-4" />}
             label="Ticket Médio"
             value={formatCurrency(kpi.averageTicket)}
             change={kpi.changePercent}
+            tooltip="Valor médio gasto por dia de venda. Calculado como receita total ÷ número de dias com vendas no mês. Indica o poder de compra dos clientes."
           />
           <KpiCard
             icon={<ShoppingCart className="w-4 h-4" />}
             label="Total Lojas"
             value={formatNumber(kpi.totalStores)}
+            tooltip="Número total de lojas ativas na rede da distribuidora. Inclui supermercados, lojas de conveniência e atacados."
           />
           <KpiCard
             icon={<Store className="w-4 h-4" />}
             label="Regiões Ativas"
             value="5"
+            tooltip="Cobertura geográfica: Norte, Nordeste, Centro-Oeste, Sudeste e Sul. Todas as 5 regiões do Brasil com operação ativa."
           />
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {/* Monthly Trend */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
             <h3 className="text-sm font-medium text-zinc-300 mb-4">
               Tendência Mensal (12 meses)
             </h3>
-            <div className="h-64">
+            <div className="h-52 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={kpi.monthlyTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
@@ -197,7 +191,7 @@ export function Dashboard() {
             <h3 className="text-sm font-medium text-zinc-300 mb-4">
               Top 5 Produtos (este mês)
             </h3>
-            <div className="h-64">
+            <div className="h-52 sm:h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={kpi.topProducts}
@@ -238,13 +232,13 @@ export function Dashboard() {
         </div>
 
         {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {/* Regional Breakdown */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
             <h3 className="text-sm font-medium text-zinc-300 mb-4">
               Vendas por Região
             </h3>
-            <div className="h-52">
+            <div className="h-44 sm:h-52">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -334,34 +328,53 @@ function KpiCard({
   label,
   value,
   change,
+  tooltip,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   change?: number;
+  tooltip?: string;
 }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-zinc-400">{label}</span>
-        <span className="text-zinc-500">{icon}</span>
-      </div>
-      <div className="text-lg font-semibold">{value}</div>
-      {change !== undefined && (
-        <div className="flex items-center gap-1 mt-1">
-          {change >= 0 ? (
-            <TrendingUp className="w-3 h-3 text-emerald-400" />
-          ) : (
-            <TrendingDown className="w-3 h-3 text-red-400" />
-          )}
-          <span
-            className={`text-xs ${change >= 0 ? "text-emerald-400" : "text-red-400"}`}
-          >
-            {change >= 0 ? "+" : ""}
-            {change.toFixed(1)}% vs mês anterior
-          </span>
-        </div>
-      )}
-    </div>
+    <RadixTooltip.Provider delayDuration={300}>
+      <RadixTooltip.Root>
+        <RadixTooltip.Trigger asChild>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 cursor-help hover:border-zinc-700 transition-colors">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-[11px] sm:text-xs text-zinc-400">{label}</span>
+              <span className="text-zinc-500">{icon}</span>
+            </div>
+            <div className="text-base sm:text-lg font-semibold truncate">{value}</div>
+            {change !== undefined && (
+              <div className="flex items-center gap-1 mt-1">
+                {change >= 0 ? (
+                  <TrendingUp className="w-3 h-3 text-emerald-400" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 text-red-400" />
+                )}
+                <span
+                  className={`text-xs ${change >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                >
+                  {change >= 0 ? "+" : ""}
+                  {change.toFixed(1)}% vs mês anterior
+                </span>
+              </div>
+            )}
+          </div>
+        </RadixTooltip.Trigger>
+        {tooltip && (
+          <RadixTooltip.Portal>
+            <RadixTooltip.Content
+              className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-3 py-2 max-w-[220px] shadow-xl"
+              sideOffset={5}
+            >
+              {tooltip}
+              <RadixTooltip.Arrow className="fill-zinc-800" />
+            </RadixTooltip.Content>
+          </RadixTooltip.Portal>
+        )}
+      </RadixTooltip.Root>
+    </RadixTooltip.Provider>
   );
 }

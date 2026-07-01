@@ -6,3 +6,9 @@ dist/
 .Trash-*
 .DS_Store
 thumbs.db
+feedback-log.json
+training_data/
+juice-model-lora/
+juice-model-merged/
+*.gguf
+*.tsbuildinfo
