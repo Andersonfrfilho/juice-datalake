@@ -15,6 +15,7 @@ const TRINO_URL = process.env.TRINO_URL || "http://localhost:8080";
 const TRINO_USER = process.env.TRINO_USER || "admin";
 const TRINO_CATALOG = process.env.TRINO_CATALOG || "postgresql";
 const TRINO_SCHEMA = process.env.TRINO_SCHEMA || "public";
+const TRINO_QUERY_TIMEOUT_MS = Number(process.env.TRINO_QUERY_TIMEOUT_MS) || 30000;
 
 let trinoClient: any = null;
 
@@ -36,6 +37,56 @@ async function getClient() {
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+async function runQuery(client: any, sql: string): Promise<QueryResult> {
+  const iterator = await client.query(sql);
+
+  const columns: QueryColumn[] = [];
+  const rows: Record<string, unknown>[] = [];
+  let queryId = "";
+
+  for await (const result of iterator) {
+    if (result.error) {
+      throw new Error(`Trino query error: ${result.error.message || JSON.stringify(result.error)}`);
+    }
+
+    if (result.columns && !columns.length) {
+      for (const col of result.columns) {
+        if (col) {
+          columns.push({ name: col.name, type: col.type });
+        }
+      }
+    }
+
+    if (result.data) {
+      for (const row of result.data) {
+        const obj: Record<string, unknown> = {};
+        columns.forEach((col, idx) => {
+          obj[col.name] = row[idx];
+        });
+        rows.push(obj);
+      }
+    }
+
+    if (result.id) {
+      queryId = result.id;
+    }
+  }
+
+  return { columns, rows, queryId };
+}
+
 export async function executeQuery(sql: string): Promise<QueryResult> {
   // Safety: block any DDL/DML statements
   const upperSQL = sql.trim().toUpperCase();
@@ -56,41 +107,7 @@ export async function executeQuery(sql: string): Promise<QueryResult> {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const client = await getClient();
-      const iterator = await client.query(sql);
-
-      const columns: QueryColumn[] = [];
-      const rows: Record<string, unknown>[] = [];
-      let queryId = "";
-
-      for await (const result of iterator) {
-        if (result.error) {
-          throw new Error(`Trino query error: ${result.error.message || JSON.stringify(result.error)}`);
-        }
-
-        if (result.columns && !columns.length) {
-          for (const col of result.columns) {
-            if (col) {
-              columns.push({ name: col.name, type: col.type });
-            }
-          }
-        }
-
-        if (result.data) {
-          for (const row of result.data) {
-            const obj: Record<string, unknown> = {};
-            columns.forEach((col, idx) => {
-              obj[col.name] = row[idx];
-            });
-            rows.push(obj);
-          }
-        }
-
-        if (result.id) {
-          queryId = result.id;
-        }
-      }
-
-      return { columns, rows, queryId };
+      return await withTimeout(runQuery(client, sql), TRINO_QUERY_TIMEOUT_MS, "Trino query");
     } catch (err: any) {
       lastError = err;
       if (attempt < MAX_RETRIES) {
