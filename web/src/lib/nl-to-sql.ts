@@ -45,6 +45,23 @@ export interface ChatMessage {
   content: string;
 }
 
+export async function chatOpenAI(prompt: string, systemPrompt: string): Promise<string> {
+  const response = await openai.chat.completions.create(
+    {
+      model: MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 300,
+    },
+    { timeout: 15000 }
+  );
+
+  return response.choices[0]?.message?.content?.trim() || "";
+}
+
 export async function translateToSQL(
   question: string,
   history: ChatMessage[] = []

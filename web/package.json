@@ -13,6 +13,7 @@
     "migrate:status": "node scripts/migrate.js --status"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.109.0",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-dialog": "^1.1.0",
     "@radix-ui/react-scroll-area": "^1.2.0",

@@ -271,9 +271,9 @@ ORDER BY gap_pct ASC LIMIT 10`,
     ],
     sql: `SELECT p.name as produto, p.category as categoria,
   ROUND(SUM(s.quantity),0) as volume_total,
-  ROUND((SUM(s.quantity)/NULLIF(COUNT(DISTINCT s.sale_date),0)),1) as media_diaria,
+  ROUND(CAST(SUM(s.quantity) AS DOUBLE)/NULLIF(COUNT(DISTINCT s.sale_date),0),1) as media_diaria,
   COUNT(DISTINCT s.store_id) as lojas_ativas,
-  ROUND((SUM(s.quantity)/NULLIF(COUNT(DISTINCT s.store_id),0)),1) as media_por_loja
+  ROUND(CAST(SUM(s.quantity) AS DOUBLE)/NULLIF(COUNT(DISTINCT s.store_id),0),1) as media_por_loja
 FROM postgresql.public.sales s
 JOIN postgresql.public.products p ON s.product_id = p.id
 WHERE s.sale_date >= {period_start} AND s.sale_date <= CURRENT_DATE
@@ -748,7 +748,7 @@ SELECT p.name as produto, p.category as categoria,
   SUM(r.quantity) as qtd_devolvida,
   COUNT(*) as ocorrencias,
   SUM(r.total_amount) as valor_devolvido,
-  ROUND((SUM(r.quantity)/NULLIF(MAX(sold.qtd_vendida),0)*100),1) as taxa_devolucao_pct
+  ROUND(CAST(SUM(r.quantity) AS DOUBLE)/NULLIF(MAX(sold.qtd_vendida),0)*100,1) as taxa_devolucao_pct
 FROM postgresql.public.returns r
 JOIN postgresql.public.products p ON r.product_id = p.id
 LEFT JOIN sold ON sold.product_id = r.product_id
@@ -798,7 +798,7 @@ LIMIT {limit}`,
     category: "Devoluções",
     patterns: [
       "motivo(s)? (de |da |das )?devolu[cç]",
-      "por que (devolvem|retornam|cancelam)",
+      "por ?que (devolvem|retornam|cancelam|.*devolvendo)",
       "causa(s)? (de |da )?devolu[cç]",
       "razao (de |da )?devolu",
       "qual (o )?motivo",
@@ -812,8 +812,8 @@ LIMIT {limit}`,
   COUNT(*) as ocorrencias,
   SUM(r.quantity) as qtd_devolvida,
   SUM(r.total_amount) as valor_devolvido,
-  ROUND((COUNT(*)/NULLIF((SELECT COUNT(*) FROM postgresql.public.returns
-    WHERE return_date >= {period_start} AND return_date <= CURRENT_DATE),0)*100),1) as participacao_pct
+  ROUND(CAST((COUNT(*)/CAST(NULLIF((SELECT COUNT(*) FROM postgresql.public.returns
+    WHERE return_date >= {period_start} AND return_date <= CURRENT_DATE),0) AS DOUBLE)*100) AS DECIMAL),1) as participacao_pct
 FROM postgresql.public.returns r
 WHERE r.return_date >= {period_start} AND r.return_date <= CURRENT_DATE
 GROUP BY r.reason

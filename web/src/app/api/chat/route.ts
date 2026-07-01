@@ -14,6 +14,13 @@ const chatRequestSchema = z.object({
 });
 
 const hasOpenAI = !!process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith("sk-your-");
+const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+
+// Which provider formats low-confidence answers and the market-context footnote.
+// "ollama" (default) keeps the existing free/local behavior; "openai"/"anthropic"
+// trade a paid API key for far lower latency (Ollama on Railway's CPU tier can
+// take minutes per answer — cloud providers respond in a few seconds).
+const AI_PROVIDER = (process.env.AI_PROVIDER || "ollama").toLowerCase();
 
 async function getOpenAISQL(question: string, history: { role: string; content: string }[]) {
   const { translateToSQL, formatResponse } = await import("@/lib/nl-to-sql");
@@ -21,6 +28,28 @@ async function getOpenAISQL(question: string, history: { role: string; content: 
     sql: await translateToSQL(question, history as any),
     format: async (s: string, r: any) => formatResponse(question, s, r),
   };
+}
+
+async function isAIProviderReady(): Promise<boolean> {
+  if (AI_PROVIDER === "openai") return hasOpenAI;
+  if (AI_PROVIDER === "anthropic") return hasAnthropic;
+  return isOllamaAvailable();
+}
+
+async function formatWithAIProvider(
+  question: string,
+  sql: string,
+  result: { columns: { name: string }[]; rows: Record<string, unknown>[] }
+): Promise<string> {
+  if (AI_PROVIDER === "openai") {
+    const { formatResponse } = await import("@/lib/nl-to-sql");
+    return formatResponse(question, sql, result);
+  }
+  if (AI_PROVIDER === "anthropic") {
+    const { formatAnthropicResponse } = await import("@/lib/anthropic-translator");
+    return formatAnthropicResponse(question, sql, result);
+  }
+  return formatOllamaResponse(question, sql, result);
 }
 
 export async function POST(request: NextRequest) {
@@ -53,26 +82,28 @@ export async function POST(request: NextRequest) {
     let sql = result.match.resolvedSQL;
     let engine: string = "template";
     let formatAnswer: (s: string, r: any) => Promise<string>;
-    let addContext = false;
+    // Analytical categories get the market-context footnote regardless of match
+    // confidence — "why/is this normal" questions (e.g. devoluções) need the
+    // industry-benchmark comparison even when they only fuzzy-matched a template.
+    const addContext = ["Financeiro", "Tendências", "Previsão", "Devoluções"].includes(result.match.template.category);
 
     if (result.match.confidence === "high") {
       // Pure template, no AI needed. But add market context for financial/trend questions.
       formatAnswer = (_s, r) => Promise.resolve(formatTemplateResponse(result.match!.template.description, r));
-      addContext = ["Financeiro", "Tendências", "Previsão", "Devoluções"].includes(result.match.template.category);
       if (addContext) engine = "template+context";
     } else if (result.match.confidence === "medium") {
       // Template data, no AI formatting
       formatAnswer = (_s, r) => Promise.resolve(formatTemplateResponse(result.match!.template.description, r));
       engine = "template";
     } else {
-      // Low confidence — template SQL + Ollama formatting (if available)
+      // Low confidence — template SQL + AI formatting (if the configured provider is available)
       engine = "template-low";
-      const ollamaReady = await isOllamaAvailable();
-      if (ollamaReady) {
+      const aiReady = await isAIProviderReady();
+      if (aiReady) {
         formatAnswer = async (s, r) => {
           try {
-            const formatted = await formatOllamaResponse(question, s, r);
-            engine = "ollama";
+            const formatted = await formatWithAIProvider(question, s, r);
+            engine = AI_PROVIDER;
             return formatted;
           } catch {
             return formatTemplateResponse(result.match!.template.description, r);
@@ -99,11 +130,8 @@ export async function POST(request: NextRequest) {
     const answer = await formatAnswer(sql, queryResult);
 
     let marketContext = "";
-    if (addContext) {
-      const ollamaReady = await isOllamaAvailable();
-      if (ollamaReady) {
-        marketContext = await getMarketContext(question, answer);
-      }
+    if (addContext && (await isAIProviderReady())) {
+      marketContext = await getMarketContext(question, answer);
     }
 
     const finalAnswer = addGlossary(answer + marketContext);
@@ -317,20 +345,8 @@ function addGlossary(text: string): string {
   return result;
 }
 
-async function getMarketContext(question: string, answer: string): Promise<string> {
-  const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-  const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:3b";
-
-  try {
-    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        stream: false,
-        messages: [
-          { role: "system", content: OLLAMA_SYSTEM_PROMPT },
-          { role: "user", content: `Pergunta do usuário: "${question}"
+function buildMarketContextPrompt(question: string, answer: string): string {
+  return `Pergunta do usuário: "${question}"
 Dados da resposta: "${answer.substring(0, 400)}"
 
 Com base nos benchmarks do setor de bebidas Brasil 2026 que você conhece (margem 35-45%, crescimento 8-12%, devolução 2-5%, ticket R$150-400), adicione UMA frase curta comparando estes dados com o mercado. Exemplos:
@@ -339,16 +355,50 @@ Com base nos benchmarks do setor de bebidas Brasil 2026 que você conhece (marge
 - "Ticket dentro da faixa esperada para a região"
 
 Seja específico. NÃO use "N/A". Se não souber comparar, diga "Dados alinhados com as médias do setor de bebidas 2026."
-Responda APENAS a frase comparativa.` },
-        ],
-        options: { temperature: 0.3, num_predict: 200 },
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
+Responda APENAS a frase comparativa.`;
+}
 
-    if (!res.ok) return "";
-    const data = await res.json();
-    const ctx = (data.message?.content || "").trim();
+async function getOllamaMarketContext(prompt: string): Promise<string> {
+  const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
+  const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:3b";
+
+  // Deliberately short, fixed timeout — this footnote must never make the
+  // user wait as long as the main answer (which uses OLLAMA_TIMEOUT_MS).
+  const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      stream: false,
+      messages: [
+        { role: "system", content: OLLAMA_SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+      options: { temperature: 0.3, num_predict: 200 },
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!res.ok) return "";
+  const data = await res.json();
+  return (data.message?.content || "").trim();
+}
+
+async function getMarketContext(question: string, answer: string): Promise<string> {
+  const prompt = buildMarketContextPrompt(question, answer);
+
+  try {
+    let ctx: string;
+    if (AI_PROVIDER === "openai") {
+      const { chatOpenAI } = await import("@/lib/nl-to-sql");
+      ctx = await chatOpenAI(prompt, OLLAMA_SYSTEM_PROMPT);
+    } else if (AI_PROVIDER === "anthropic") {
+      const { chatAnthropic } = await import("@/lib/anthropic-translator");
+      ctx = await chatAnthropic(prompt, OLLAMA_SYSTEM_PROMPT);
+    } else {
+      ctx = await getOllamaMarketContext(prompt);
+    }
+
     if (!ctx || ctx === "N/A" || ctx.includes("N/A") || ctx.length < 10) return "";
     return `\n\n---\n📊 *Contexto de mercado 2026:* ${ctx}`;
   } catch {

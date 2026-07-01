@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { marked } from "marked";
-import { Send, Loader2, AlertCircle, Database, FileCode, Brain, Globe, Copy, Check } from "lucide-react";
+import { Send, Loader2, AlertCircle, Database, FileCode, Brain, Globe, Sparkles, Copy, Check } from "lucide-react";
 
 interface Message {
   id: string;
@@ -202,16 +202,19 @@ export function Chat() {
                   {msg.engine === "template-low" && <FileCode className="w-3 h-3 text-amber-400" />}
                   {msg.engine === "ollama" && <Brain className="w-3 h-3 text-violet-400" />}
                   {msg.engine === "openai" && <Globe className="w-3 h-3 text-blue-400" />}
+                  {msg.engine === "anthropic" && <Sparkles className="w-3 h-3 text-orange-400" />}
                   <span className={`text-[10px] ${
                     msg.engine === "template" ? "text-emerald-400" :
                     msg.engine === "template+context" ? "text-emerald-400" :
                     msg.engine === "template-low" ? "text-amber-400" :
-                    msg.engine === "ollama" ? "text-violet-400" : "text-blue-400"
+                    msg.engine === "ollama" ? "text-violet-400" :
+                    msg.engine === "anthropic" ? "text-orange-400" : "text-blue-400"
                   }`}>
                     {msg.engine === "template" ? "Template (100% determinístico)" :
                      msg.engine === "template+context" ? "Template + Contexto IA" :
                      msg.engine === "template-low" ? "Template (aproximação)" :
-                     msg.engine === "ollama" ? "Ollama IA (local)" : "OpenAI"}
+                     msg.engine === "ollama" ? "Ollama IA (local)" :
+                     msg.engine === "anthropic" ? "Claude (Anthropic)" : "OpenAI"}
                   </span>
                 </div>
                 <button
@@ -238,7 +241,7 @@ export function Chat() {
                   ))}
                 </div>
               )}
-              {(msg.engine === "ollama" || msg.engine === "template+context") && (
+              {(msg.engine === "ollama" || msg.engine === "openai" || msg.engine === "anthropic" || msg.engine === "template+context") && (
                 <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-zinc-700/50">
                   <span className="text-[10px] text-zinc-500">Esta resposta usou IA. Foi útil?</span>
                   {msg.feedback ? (
