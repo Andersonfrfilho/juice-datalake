@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.next/
+.env
+*.parquet
+.Trash-*
+.DS_Store
+thumbs.db

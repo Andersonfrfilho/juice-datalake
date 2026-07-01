@@ -1,0 +1,124 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: juice-postgres
+    environment:
+      POSTGRES_USER: jadmin
+      POSTGRES_PASSWORD: juice123
+      POSTGRES_DB: juicedb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - datalake-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jadmin -d juicedb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  minio:
+    image: minio/minio:latest
+    container_name: juice-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - datalake-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  minio-create-bucket:
+    image: minio/mc:latest
+    container_name: juice-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin123;
+      mc mb --ignore-existing local/datalake;
+      echo 'Bucket datalake ready';
+      exit 0;
+      "
+    networks:
+      - datalake-net
+
+  trino:
+    image: trinodb/trino:462
+    container_name: juice-trino
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trino/etc/config.properties:/etc/trino/config.properties:ro
+      - ./trino/etc/jvm.config:/etc/trino/jvm.config:ro
+      - ./trino/etc/node.properties:/etc/trino/node.properties:ro
+      - ./trino/etc/catalog:/etc/trino/catalog:ro
+    networks:
+      - datalake-net
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl -f http://localhost:8080/v1/info || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ---- IA Local (opcional) ----
+  # Modelo gratuito que roda 100% local, sem internet, sem API key.
+  # Traduz perguntas → SQL quando os templates não cobrem a pergunta.
+  # Para ativar: descomente as linhas abaixo e rode `make up`
+  # Primeiro start pode demorar 5-10 min baixando o modelo (~2GB).
+  #
+  ollama:
+    image: ollama/ollama:latest
+    container_name: juice-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - datalake-net
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 15s
+      retries: 20
+      start_period: 120s
+    entrypoint: >
+      /bin/sh -c "
+      ollama serve &
+      sleep 5;
+      ollama pull qwen2.5:3b;
+      wait
+      "
+
+networks:
+  datalake-net:
+    driver: bridge
+    name: datalake-net
+
+volumes:
+  postgres_data:
+    name: juice_postgres_data
+  minio_data:
+    name: juice_minio_data
+  ollama_data:
+    name: juice_ollama_data
