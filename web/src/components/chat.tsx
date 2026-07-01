@@ -86,9 +86,16 @@ export function Chat() {
     setLoadingMessage("Consultando data lake...");
     setError(null);
 
-    const slowTimer = setTimeout(() => {
-      setLoadingMessage("Buscando informações no nosso modelo treinado (IA local)... pode demorar um pouco mais ⏳");
-    }, 2500);
+    const loadingStages: [number, string][] = [
+      [2500, "Nenhum template exato bateu, buscando com nosso modelo de IA... 🤖"],
+      [15000, "Carregando o modelo de IA na memória (pode levar até 40s)... 🧠"],
+      [45000, "Estamos usando um modelo de IA ainda em fase de testes — tempo médio de resposta: 2 a 3 minutos ⏳"],
+      [120000, "Ainda trabalhando nisso. Os dados já foram encontrados, falta só a IA formatar a resposta 🐢"],
+      [200000, "Quase lá — modelo de testes em CPU é mais lento, mas sem custo. Últimos segundos... ⌛"],
+    ];
+    const stageTimers = loadingStages.map(([delay, message]) =>
+      setTimeout(() => setLoadingMessage(message), delay)
+    );
 
     try {
       const history = messages.map((m) => ({
@@ -136,7 +143,7 @@ export function Chat() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } finally {
-      clearTimeout(slowTimer);
+      stageTimers.forEach(clearTimeout);
       setLoading(false);
       inputRef.current?.focus();
     }
