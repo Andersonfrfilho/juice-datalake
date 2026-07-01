@@ -17,7 +17,7 @@ async function ollamaChat(prompt: string, systemPrompt?: string): Promise<string
       ],
       options: { temperature: 0.1, num_predict: 500 },
     }),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(60000),
   });
 
   if (!res.ok) throw new Error(`Ollama error: ${res.status}`);

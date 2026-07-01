@@ -22,7 +22,10 @@ body {
 
 /* Markdown tables */
 .markdown-content table {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
   font-size: 0.75rem;
   margin: 0.5rem 0;

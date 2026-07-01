@@ -69,10 +69,14 @@ export async function POST(request: NextRequest) {
       engine = "template-low";
       const ollamaReady = await isOllamaAvailable();
       if (ollamaReady) {
-        engine = "ollama";
         formatAnswer = async (s, r) => {
-          try { return await formatOllamaResponse(question, s, r); }
-          catch { return formatTemplateResponse(result.match!.template.description, r); }
+          try {
+            const formatted = await formatOllamaResponse(question, s, r);
+            engine = "ollama";
+            return formatted;
+          } catch {
+            return formatTemplateResponse(result.match!.template.description, r);
+          }
         };
       } else {
         formatAnswer = (_s, r) => Promise.resolve(formatTemplateResponse(result.match!.template.description, r));

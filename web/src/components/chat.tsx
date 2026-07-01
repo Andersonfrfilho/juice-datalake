@@ -34,6 +34,7 @@ export function Chat() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Consultando data lake...");
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -82,7 +83,12 @@ export function Chat() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+    setLoadingMessage("Consultando data lake...");
     setError(null);
+
+    const slowTimer = setTimeout(() => {
+      setLoadingMessage("Buscando informações no nosso modelo treinado (IA local)... pode demorar um pouco mais ⏳");
+    }, 2500);
 
     try {
       const history = messages.map((m) => ({
@@ -130,6 +136,7 @@ export function Chat() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } finally {
+      clearTimeout(slowTimer);
       setLoading(false);
       inputRef.current?.focus();
     }
@@ -276,7 +283,7 @@ export function Chat() {
             <div className="bg-zinc-800 rounded-2xl px-4 py-3">
               <div className="flex items-center gap-2 text-zinc-400 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Consultando data lake...
+                {loadingMessage}
               </div>
             </div>
           </div>
