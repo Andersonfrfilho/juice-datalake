@@ -34,7 +34,7 @@ export function Chat() {
       id: "welcome",
       role: "assistant",
       content:
-        "Olá! Sou o assistente de dados da distribuidora de sucos. Combino **templates determinísticos** (instantâneos e precisos) com **Ollama local** (IA gratuita para contexto de mercado 2026).\n\nPergunte sobre vendas, produtos, regiões, custos, rotas, devoluções e tendências.",
+        "Olá! Sou o assistente de dados da distribuidora de sucos. Combino **templates determinísticos** (instantâneos e precisos) com **modelos de IA** (OpenAI, Anthropic ou Ollama, conforme o ambiente) para contexto de mercado 2026 e respostas mais elaboradas.\n\nPergunte sobre vendas, produtos, regiões, custos, rotas, devoluções e tendências.",
       timestamp: formatTime(new Date()),
     },
   ]);
