@@ -200,16 +200,15 @@ function formatTemplateResponse(description: string, result: { columns: { name: 
     distance_from_prev_km: "Distância (Km)",
     qtd_lojas: "Qtd Lojas", receita_por_loja: "Receita/Loja (R$)", receita_media_diaria: "Receita Média Dia (R$)",
     produtos_diferentes: "Produtos Diferentes", produtos_ativos: "Produtos Ativos",
-    devolucoes: "Devoluções", devoluções: "Devoluções", qtd_devolucoes: "Qtd Devoluções",
+    qtd_devolucoes: "Qtd Devoluções",
     volume_total: "Volume Total (un.)", volume_vendido: "Volume Vendido (un.)",
     total_transacoes: "Total Transações", transactions: "Transações",
-    representantes: "Representantes", vendas: "Vendas",
+    representantes: "Representantes",
     taxa_devolucao: "Taxa Devolução (%)",
     receita_2024: "Receita 2024 (R$)", receita_2025: "Receita 2025 (R$)",
     receita_total: "Receita Total (R$)",
-    volatilidade_preco: "Volatilidade Preço (%)",
     slope: "Tendência", stores: "Lojas", t: "Tendência", avg_rev: "Média Receita (R$)",
-    avg_revenue: "Média Receita (R$)", revenue: "Receita (R$)",
+    avg_revenue: "Média Receita (R$)",
   };
 
   // Try to build a natural language response from the first row
