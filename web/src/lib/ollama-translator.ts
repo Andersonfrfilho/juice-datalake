@@ -3,6 +3,7 @@ import { periodPresets, regionValues, categoryValues } from "./question-template
 
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:3b";
+const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS) || 60000;
 
 async function ollamaChat(prompt: string, systemPrompt?: string): Promise<string> {
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {
@@ -17,7 +18,7 @@ async function ollamaChat(prompt: string, systemPrompt?: string): Promise<string
       ],
       options: { temperature: 0.1, num_predict: 500 },
     }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(OLLAMA_TIMEOUT_MS),
   });
 
   if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
