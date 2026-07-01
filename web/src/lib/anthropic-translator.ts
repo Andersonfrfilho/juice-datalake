@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+import { OLLAMA_SYSTEM_PROMPT } from "./ollama-context";
+
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const ANTHROPIC_TIMEOUT_MS = 15000;
 
@@ -52,6 +54,6 @@ SQL: ${sql}
 Results (${result.rows.length} rows): ${JSON.stringify(result.rows.slice(0, 10))}
 Give a concise, data-backed answer in Portuguese with markdown.`;
 
-  const text = await chatAnthropic(prompt);
+  const text = await chatAnthropic(prompt, OLLAMA_SYSTEM_PROMPT);
   return text || "Dados encontrados, mas não foi possível formatar a resposta.";
 }

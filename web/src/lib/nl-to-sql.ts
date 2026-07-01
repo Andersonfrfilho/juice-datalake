@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 
+import { OLLAMA_SYSTEM_PROMPT } from "./ollama-context";
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -117,7 +119,7 @@ export async function formatResponse(
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     {
       role: "system",
-      content: `You are a business analyst for a juice distributor. Answer questions in Portuguese (Brazil) based on SQL query results. Be concise, data-driven, and helpful. Format numbers as Brazilian Real (R$). Include specific numbers from the data. If the data shows a clear trend or insight, mention it. Keep responses under 3 paragraphs.`,
+      content: `${OLLAMA_SYSTEM_PROMPT}\n\nFormate números como Real brasileiro (R$). Inclua números específicos dos dados retornados.`,
     },
     {
       role: "user",
