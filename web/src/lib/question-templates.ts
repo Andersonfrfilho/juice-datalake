@@ -539,11 +539,11 @@ LIMIT 10`,
       { name: "metric", type: "enum", values: ["receita", "volume"], default: "receita" },
     ],
     sql: `SELECT p.category as categoria,
-  SUM(CASE WHEN s.sale_date BETWEEN '2024-01-01' AND '2024-12-31' THEN s.total_amount ELSE 0 END) as receita_2024,
-  SUM(CASE WHEN s.sale_date BETWEEN '2025-01-01' AND '2025-12-31' THEN s.total_amount ELSE 0 END) as receita_2025,
-  ROUND(((SUM(CASE WHEN s.sale_date BETWEEN '2025-01-01' AND '2025-12-31' THEN s.total_amount ELSE 0 END) -
-          SUM(CASE WHEN s.sale_date BETWEEN '2024-01-01' AND '2024-12-31' THEN s.total_amount ELSE 0 END)) /
-          NULLIF(SUM(CASE WHEN s.sale_date BETWEEN '2024-01-01' AND '2024-12-31' THEN s.total_amount ELSE 0 END),0)*100),1) as crescimento_pct
+  SUM(CASE WHEN s.sale_date BETWEEN DATE '2024-01-01' AND DATE '2024-12-31' THEN s.total_amount ELSE 0 END) as receita_2024,
+  SUM(CASE WHEN s.sale_date BETWEEN DATE '2025-01-01' AND DATE '2025-12-31' THEN s.total_amount ELSE 0 END) as receita_2025,
+  ROUND(((SUM(CASE WHEN s.sale_date BETWEEN DATE '2025-01-01' AND DATE '2025-12-31' THEN s.total_amount ELSE 0 END) -
+          SUM(CASE WHEN s.sale_date BETWEEN DATE '2024-01-01' AND DATE '2024-12-31' THEN s.total_amount ELSE 0 END)) /
+          NULLIF(SUM(CASE WHEN s.sale_date BETWEEN DATE '2024-01-01' AND DATE '2024-12-31' THEN s.total_amount ELSE 0 END),0)*100),1) as crescimento_pct
 FROM postgresql.public.sales s
 JOIN postgresql.public.products p ON s.product_id = p.id
 GROUP BY p.category
@@ -738,16 +738,20 @@ ORDER BY receita_3m DESC`,
       { name: "period", type: "period", default: "last_3_months" },
       { name: "limit", type: "number", default: "10" },
     ],
-    sql: `SELECT p.name as produto, p.category as categoria,
+    sql: `WITH sold AS (
+  SELECT product_id, SUM(quantity) as qtd_vendida
+  FROM postgresql.public.sales
+  WHERE sale_date >= {period_start} AND sale_date <= CURRENT_DATE
+  GROUP BY product_id
+)
+SELECT p.name as produto, p.category as categoria,
   SUM(r.quantity) as qtd_devolvida,
   COUNT(*) as ocorrencias,
   SUM(r.total_amount) as valor_devolvido,
-  ROUND((SUM(r.quantity)/
-    NULLIF((SELECT SUM(s2.quantity) FROM postgresql.public.sales s2
-      WHERE s2.product_id = r.product_id
-        AND s2.sale_date >= {period_start} AND s2.sale_date <= CURRENT_DATE),0)*100),1) as taxa_devolucao_pct
+  ROUND((SUM(r.quantity)/NULLIF(MAX(sold.qtd_vendida),0)*100),1) as taxa_devolucao_pct
 FROM postgresql.public.returns r
 JOIN postgresql.public.products p ON r.product_id = p.id
+LEFT JOIN sold ON sold.product_id = r.product_id
 WHERE r.return_date >= {period_start} AND r.return_date <= CURRENT_DATE
 GROUP BY p.name, p.category
 ORDER BY taxa_devolucao_pct DESC
