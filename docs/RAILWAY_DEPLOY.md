@@ -6,14 +6,14 @@ Guia para deploy da plataforma Juice Data Lake no [Railway](https://railway.app)
 
 | Componente | Local (Docker) | Railway |
 |-----------|---------------|---------|
-| PostgreSQL | Container Docker | Railway Managed DB |
-| MinIO (S3) | Container Docker | Railway Volume ou skip |
-| Trino | Container Docker | Skip (substituído por queries diretas) |
-| Ollama (IA) | Container Docker | Serviço separado ou skip |
-| Next.js | Dev server | Produção (standalone) |
-| Dados | Gerados localmente | Restaurados de dump |
+| PostgreSQL | Container Docker | Railway Managed DB (`Postgres` service) |
+| MinIO (S3) / Hive | Container Docker | Não implantado (fora do caminho de query real, ver `CLAUDE.md`) |
+| Trino | Container Docker | Serviço Railway próprio, build de `docker/trino/railway/Dockerfile` |
+| Ollama (IA) | Container Docker | Não implantado nesta demo (motor de chat é templates-only) |
+| Next.js | Dev server | Produção (standalone), serviço `web` |
+| Dados | Gerados localmente | `data-generator` rodado localmente contra o Postgres do Railway via proxy TCP |
 
-**Estratégia Railway**: simplificar o stack. O Next.js consulta PostgreSQL direto via `pg` (sem Trino), mantendo os templates e o chat. É uma demonstração funcional do data lake — os conceitos e dados são os mesmos, só o query engine é simplificado.
+**Estratégia Railway**: manter a arquitetura Postgres + Trino igual à local, sem fallback simplificado. Os três serviços (`Postgres`, `Trino`, `web`) vivem no mesmo projeto Railway, linkados ao repositório GitHub público `Andersonfrfilho/juice-datalake`, e cada push em `main` dispara redeploy automático do serviço correspondente. O `web` continua consultando exclusivamente via `web/src/lib/trino.ts` — nenhum código de query foi alterado para o deploy.
 
 ## Passo 1: Preparar o Projeto
 
@@ -253,13 +253,16 @@ Copie o conteúdo de `.env.railway` no dashboard Railway (Settings → Shared Va
 
 ### 3.4 Migrations automáticas no deploy
 
-O `startCommand` já inclui `node scripts/migrate.js` antes de iniciar o servidor. As migrations rodam a cada deploy e são idempotentes (não quebram se já executadas).
+O container roda `web/docker-entrypoint.sh` (definido como `CMD` no `Dockerfile`), que executa `node scripts/migrate.js` e depois `exec node server.js`. As migrations rodam a cada deploy e são idempotentes (não quebram se já executadas).
 
-```toml
-# railway.toml
-[deploy]
-startCommand = "node scripts/migrate.js && node server.js"
+```sh
+#!/bin/sh
+set -e
+node scripts/migrate.js
+exec node server.js
 ```
+
+**Por que um script e não `startCommand: "a && b"`**: o Railway não interpreta `&&` de forma confiável dentro de uma string de `startCommand` — em produção isso rodou só `node scripts/migrate.js` e encerrou com código 0, nunca subindo o servidor (e por não ser um erro, o `restartPolicyType: ON_FAILURE` nunca disparava). Encapsular a cadeia num script com seu próprio `#!/bin/sh` garante que o `&&` seja sempre interpretado pelo shell, independente de como o Railway invoca o `CMD`.
 
 ## Passo 4: (Opcional) Deploy do Ollama no Railway
 
