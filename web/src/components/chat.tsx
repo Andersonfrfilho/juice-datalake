@@ -8,11 +8,16 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  timestamp: string;
   sql?: string;
   data?: Record<string, unknown>[];
   engine?: string;
   suggestions?: string[];
   feedback?: "helpful" | "not-helpful" | null;
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
 const DEFAULT_SUGGESTIONS = [
@@ -30,6 +35,7 @@ export function Chat() {
       role: "assistant",
       content:
         "Olá! Sou o assistente de dados da distribuidora de sucos. Combino **templates determinísticos** (instantâneos e precisos) com **Ollama local** (IA gratuita para contexto de mercado 2026).\n\nPergunte sobre vendas, produtos, regiões, custos, rotas, devoluções e tendências.",
+      timestamp: formatTime(new Date()),
     },
   ]);
   const [input, setInput] = useState("");
@@ -78,6 +84,7 @@ export function Chat() {
       id: Date.now().toString(),
       role: "user",
       content: question,
+      timestamp: formatTime(new Date()),
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -119,6 +126,7 @@ export function Chat() {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: data.answer || "Erro ao processar sua pergunta.",
+          timestamp: formatTime(new Date()),
         };
         setMessages((prev) => [...prev, assistantMsg]);
         setError(data.error || null);
@@ -127,6 +135,7 @@ export function Chat() {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: data.answer,
+          timestamp: formatTime(new Date()),
           sql: data.sql,
           data: data.data,
           engine: data.engine,
@@ -140,6 +149,7 @@ export function Chat() {
         role: "assistant",
         content:
           "Não foi possível conectar ao servidor. Verifique se o data lake está rodando.",
+        timestamp: formatTime(new Date()),
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } finally {
@@ -181,6 +191,9 @@ export function Chat() {
                 className="text-sm leading-relaxed markdown-content"
                 dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) as string }}
               />
+              <div className={`text-[10px] mt-1 ${msg.role === "user" ? "text-white/60" : "text-zinc-500"}`}>
+                {msg.timestamp}
+              </div>
               {msg.engine && (
                 <div className="flex items-center justify-between mt-1.5">
                   <div className="flex items-center gap-1">
